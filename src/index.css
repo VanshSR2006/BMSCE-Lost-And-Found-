@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 210 100% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 100% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 100% 12%;
+
+    --primary: 214 95% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 210 100% 12%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 214 95% 55%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 88%;
+    --input: 214 32% 88%;
+    --ring: 214 95% 55%;
+
+    --radius: 0.75rem;
+    
+    /* Premium color palette */
+    --navy: 210 100% 12%;
+    --royal: 214 95% 55%;
+    --gold: 43 74% 49%;
+    --warm-gray: 0 0% 93%;
+    --charcoal: 0 0% 10%;
+    
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(210 100% 12%) 0%, hsl(214 95% 55%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
+    --gradient-premium: linear-gradient(135deg, hsl(214 95% 55%) 0%, hsl(210 100% 12%) 100%);
+    
+    /* Shadows */
+    --shadow-soft: 0 2px 8px -2px hsl(214 95% 55% / 0.1);
+    --shadow-card: 0 4px 16px -4px hsl(214 95% 55% / 0.15);
+    --shadow-elegant: 0 8px 24px -8px hsl(210 100% 12% / 0.2);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 210 100% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 210 100% 12%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 210 100% 12%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 214 95% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 215 28% 20%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 210 100% 15%;
+    --accent-foreground: 214 95% 55%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 215 28% 25%;
+    --input: 215 28% 25%;
+    --ring: 214 95% 55%;
+    
+    /* Premium dark colors */
+    --navy: 210 100% 8%;
+    --royal: 214 95% 55%;
+    --gold: 43 74% 49%;
+    
+    /* Dark gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(210 100% 12%) 0%, hsl(214 95% 45%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(210 100% 12%) 0%, hsl(210 100% 14%) 100%);
+    --gradient-premium: linear-gradient(135deg, hsl(214 95% 45%) 0%, hsl(210 100% 12%) 100%);
+    
+    /* Dark shadows */
+    --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
+    --shadow-card: 0 4px 16px -4px hsl(0 0% 0% / 0.4);
+    --shadow-elegant: 0 8px 24px -8px hsl(0 0% 0% / 0.5);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-delay-100 {
+    animation-delay: 0.1s;
+  }
+  
+  .animate-delay-200 {
+    animation-delay: 0.2s;
+  }
+  
+  .animate-delay-300 {
+    animation-delay: 0.3s;
+  }
+  
+  .animate-delay-400 {
+    animation-delay: 0.4s;
+  }
+  
+  .animate-delay-500 {
+    animation-delay: 0.5s;
+  }
+
+  /* Hover scale effect */
+  .hover-lift {
+    @apply transition-all duration-300 ease-out;
+  }
+  
+  .hover-lift:hover {
+    @apply -translate-y-1 shadow-lg;
+  }
+  
+  /* Link underline animation */
+  .link-underline {
+    @apply relative;
+  }
+  
+  .link-underline::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-full h-0.5 bg-primary origin-bottom-right scale-x-0 transition-transform duration-300 ease-out;
+  }
+  
+  .link-underline:hover::after {
+    @apply origin-bottom-left scale-x-100;
+  }
+  
+  /* Smooth transitions */
+  .transition-smooth {
+    @apply transition-all duration-300 ease-out;
+  }
+  
+  .transition-theme {
+    @apply transition-colors duration-500 ease-in-out;
+  }
+}
