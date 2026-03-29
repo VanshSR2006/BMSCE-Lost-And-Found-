@@ -9,7 +9,17 @@ interface ItemCardProps {
   date: string;
   type: "lost" | "found";
   imageUrl?: string;
+  thumbnail?: string;
 }
+
+const CATEGORY_ICONS: Record<string, string> = {
+  wallet: "account_balance_wallet",
+  "id-card": "badge",
+  bottle: "water_drop",
+  stationery: "edit",
+  electronics: "devices",
+  other: "inventory_2",
+};
 
 const ItemCard = ({
   id,
@@ -20,7 +30,9 @@ const ItemCard = ({
   date,
   type,
   imageUrl,
+  thumbnail,
 }: ItemCardProps) => {
+  const displayImage = thumbnail || imageUrl || null;
   return (
     <Link
       to={`/items/${id}`}
@@ -40,16 +52,22 @@ const ItemCard = ({
         <div className={`absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl opacity-50 transition-all duration-500 group-hover:scale-150 ${type === 'lost' ? 'bg-[#ff2e97]' : 'bg-[#4af8e3]'}`}></div>
 
         {/* IMAGE */}
-        <div className="relative h-48 overflow-hidden bg-[#16052a]">
-          <img
-            src={imageUrl || "/placeholder.svg"}
-            alt={title}
-            className="
-              w-full h-full object-cover grayscale-[0.2]
-              transition-transform duration-700 ease-out 
-              group-hover:scale-110 group-hover:grayscale-0
-            "
-          />
+        <div className="relative h-48 overflow-hidden bg-[#16052a] flex-shrink-0">
+          {displayImage ? (
+            <img
+              src={displayImage}
+              alt={title}
+              className="w-full h-full object-cover grayscale-[0.2] transition-transform duration-700 ease-out group-hover:scale-110 group-hover:grayscale-0"
+            />
+          ) : (
+            <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${type === 'lost' ? 'bg-[#ff2e97]/5' : 'bg-[#4af8e3]/5'}`}>
+              <span className={`material-symbols-outlined text-5xl opacity-30 ${type === 'lost' ? 'text-[#ff2e97]' : 'text-[#4af8e3]'}`}
+                style={{fontVariationSettings: "'FILL' 1"}}>
+                {CATEGORY_ICONS[category] || "inventory_2"}
+              </span>
+              <span className="text-white/20 text-xs uppercase tracking-widest font-bold">No Image</span>
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-[#240e3b] via-transparent to-transparent opacity-80"></div>
 
           {/* TYPE BADGE on image */}

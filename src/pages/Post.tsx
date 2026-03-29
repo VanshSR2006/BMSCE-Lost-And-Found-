@@ -50,6 +50,7 @@ const Post = () => {
   });
 
   const [imagePreview, setImagePreview] = useState("");
+  const [imageThumbnail, setImageThumbnail] = useState("");
   const [isCompressing, setIsCompressing] = useState(false);
 
   /* ---------------- IMAGE ---------------- */
@@ -67,6 +68,7 @@ const Post = () => {
     try {
       const compressed = await compressImage(file);
       setImagePreview(compressed.base64);
+      setImageThumbnail(compressed.thumbnail);
       toast.success("Image ready");
     } catch {
       toast.error("Failed to process image");
@@ -101,6 +103,7 @@ const Post = () => {
       await api.post("/items/create", {
         ...formData,
         image: imagePreview || null,
+        thumbnail: imageThumbnail || null,
       });
 
       toast.success("Item posted successfully ✅");

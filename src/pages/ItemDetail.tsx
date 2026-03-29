@@ -3,8 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import {
@@ -14,6 +12,8 @@ import {
   Share2,
   Flag,
   PackageCheck,
+  ShieldCheck,
+  User,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -31,13 +31,21 @@ import {
 
 import { api } from "@/utils/api";
 
+const CATEGORY_ICONS: Record<string, string> = {
+  wallet: "account_balance_wallet",
+  "id-card": "badge",
+  bottle: "water_drop",
+  stationery: "edit",
+  electronics: "devices",
+  other: "inventory_2",
+};
+
 const ItemDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { notifications } = useNotifications();
 
-  // Only show handover button if this user has a match notification pointing to this found item
   const hasMatchForThisItem = notifications.some(
     (n) => n.type === "match" && n.foundItem?._id === id
   );
@@ -46,7 +54,6 @@ const ItemDetail = () => {
   const [loading, setLoading] = useState(true);
   const [showClaimDialog, setShowClaimDialog] = useState(false);
 
-  // Fetch item details
   useEffect(() => {
     const fetchItem = async () => {
       try {
@@ -61,9 +68,6 @@ const ItemDetail = () => {
     fetchItem();
   }, [id]);
 
-  // -------------------------
-  // SHARE
-  // -------------------------
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
@@ -77,16 +81,10 @@ const ItemDetail = () => {
     }
   };
 
-  // -------------------------
-  // REPORT
-  // -------------------------
   const handleReport = () => {
     toast.success("Item reported. Admin will review.");
   };
 
-  // -------------------------
-  // CLAIM ITEM / REQUEST HANDOVER
-  // -------------------------
   const handleClaim = async () => {
     try {
       await api.put(`/items/${item._id}/claim`);
@@ -98,168 +96,217 @@ const ItemDetail = () => {
       setShowClaimDialog(false);
       
       if(item.type === "lost") {
-        navigate("/my-posts");
+        navigate("/");
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to process request");
     }
   };
 
-  // -------------------------
-  // LOADING / ERROR SCREENS
-  // -------------------------
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground text-xl">
-        Loading item...
+      <div className="min-h-screen bg-[#16052a] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4af8e3]"></div>
       </div>
     );
   }
 
   if (!item) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen bg-[#16052a] flex flex-col">
         <Navbar />
-        <main className="flex-1 container mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold mb-4">Item Not Found</h1>
-          <Button onClick={() => navigate("/")}>Back to Home</Button>
+        <main className="flex-1 container mx-auto px-4 py-32 text-center">
+          <h1 className="text-3xl font-bold text-white mb-6 font-['Plus_Jakarta_Sans']">Anomaly Not Located</h1>
+          <p className="text-purple-200/50 mb-8">The requested item signature does not exist in the neural net.</p>
+          <Button 
+            onClick={() => navigate("/")}
+            className="bg-[#6200EE] hover:bg-[#6200EE]/80 text-white rounded-xl px-8 h-12"
+          >
+            Return to Base
+          </Button>
         </main>
         <Footer />
       </div>
     );
   }
 
-  // -------------------------
-  // RENDER PAGE UI
-  // -------------------------
   return (
-    <div className="min-h-screen flex flex-col animate-fade-in">
+    <div className="min-h-screen bg-[#16052a] flex flex-col font-['Inter'] selection:bg-[#4af8e3]/30 selection:text-[#4af8e3]">
       <Navbar />
 
-      <main className="container mx-auto flex-1 px-4 py-10">
-        <Button
-          variant="ghost"
-          onClick={() => navigate(-1)}
-          className="mb-6 flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+      <main className="flex-1 pt-24 pb-32">
+        <div className="max-w-6xl mx-auto px-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="group flex items-center gap-2 text-purple-200/40 hover:text-white transition-colors mb-8 font-bold text-sm uppercase tracking-widest"
+          >
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+            Back to Directory
+          </button>
 
-        <div className="grid lg:grid-cols-2 gap-10">
-          {/* IMAGE */}
-          <div className="rounded-xl shadow-xl overflow-hidden bg-muted">
-            <img
-              src={item.image || "/placeholder.svg"}
-              alt={item.title}
-              className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
-            />
-          </div>
-
-          {/* DETAILS */}
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-4xl font-bold mb-3">{item.title}</h1>
-              <Badge
-                variant={item.type === "lost" ? "destructive" : "default"}
-                className="text-sm px-3 py-1"
-              >
-                {item.type === "lost" ? "🔴 Lost" : "🟢 Found"}
-              </Badge>
+          <div className="grid lg:grid-cols-2 gap-12 items-start">
+            {/* LEFT: IMAGE SECTION */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#6200EE] to-[#4af8e3] rounded-[2rem] blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+              <div className="relative aspect-square md:aspect-video lg:aspect-square rounded-[2rem] overflow-hidden bg-[#240e3b] border border-white/10 shadow-2xl">
+                {item.image ? (
+                  <img
+                    src={item.image}
+                    alt={item.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-white/[0.02] to-transparent">
+                    <span className={`material-symbols-outlined text-8xl opacity-10 ${item.type === 'lost' ? 'text-[#ff2e97]' : 'text-[#4af8e3]'}`}
+                      style={{fontVariationSettings: "'FILL' 1"}}>
+                      {CATEGORY_ICONS[item.category] || "inventory_2"}
+                    </span>
+                    <span className="text-white/20 text-xs uppercase tracking-[0.3em] font-black">Null Visual Evidence</span>
+                  </div>
+                )}
+                
+                {/* STATUS OVERLAY */}
+                <div className="absolute top-6 left-6">
+                  <div className={`px-4 py-2 rounded-full backdrop-blur-md border font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl ${item.type === "lost" ? "bg-[#ff2e97]/20 border-[#ff2e97]/40 text-[#ff2e97]" : "bg-[#4af8e3]/20 border-[#4af8e3]/40 text-[#4af8e3]"}`}>
+                    <span className="flex items-center gap-2">
+                       <span className={`w-2 h-2 rounded-full animate-pulse ${item.type === 'lost' ? 'bg-[#ff2e97]' : 'bg-[#4af8e3]'}`}></span>
+                       {item.type} Object
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              {item.description}
-            </p>
+            {/* RIGHT: CONTENT SECTION */}
+            <div className="flex flex-col h-full space-y-8">
+              <div>
+                <h1 className="text-4xl md:text-5xl font-extrabold text-white font-['Plus_Jakarta_Sans'] tracking-tight mb-4">{item.title}</h1>
+                <p className="text-xl text-purple-100/60 leading-relaxed font-medium">
+                  {item.description}
+                </p>
+              </div>
 
-            <Card className="border rounded-xl">
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-primary mt-1" />
-                  <div>
-                    <p className="font-semibold">Location</p>
-                    <p className="text-muted-foreground">{item.location}</p>
+              {/* DETAILS GRID */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/[0.03] border border-white/5 p-5 rounded-2xl backdrop-blur-xl">
+                  <div className="flex items-center gap-3 mb-1">
+                    <MapPin className="h-4 w-4 text-[#4af8e3]" />
+                    <span className="text-[10px] uppercase font-black tracking-widest text-[#4af8e3]">Location</span>
                   </div>
+                  <p className="text-white font-bold">{item.location}</p>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-primary mt-1" />
-                  <div>
-                    <p className="font-semibold">
-                      {item.type === "lost" ? "Lost On" : "Found On"}
-                    </p>
-                    <p className="text-muted-foreground">{item.date}</p>
+                <div className="bg-white/[0.03] border border-white/5 p-5 rounded-2xl backdrop-blur-xl">
+                  <div className="flex items-center gap-3 mb-1">
+                    <Calendar className="h-4 w-4 text-[#ff2e97]" />
+                    <span className="text-[10px] uppercase font-black tracking-widest text-[#ff2e97]">Chronology</span>
                   </div>
+                  <p className="text-white font-bold">{new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric'})}</p>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <PackageCheck className="h-5 w-5 text-primary mt-1" />
-                  <div>
-                    <p className="font-semibold">Category</p>
-                    <p className="text-muted-foreground">{item.category}</p>
+                <div className="bg-white/[0.03] border border-white/5 p-5 rounded-2xl backdrop-blur-xl">
+                  <div className="flex items-center gap-3 mb-1">
+                    <PackageCheck className="h-4 w-4 text-purple-400" />
+                    <span className="text-[10px] uppercase font-black tracking-widest text-purple-400">Classification</span>
                   </div>
+                  <p className="text-white font-bold capitalize">{item.category}</p>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* SHARE + REPORT */}
-            <div className="flex gap-4">
-              <Button variant="outline" className="flex-1" onClick={handleShare}>
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
+                <div className="bg-white/[0.03] border border-white/5 p-5 rounded-2xl backdrop-blur-xl">
+                  <div className="flex items-center gap-3 mb-1">
+                    <User className="h-4 w-4 text-blue-400" />
+                    <span className="text-[10px] uppercase font-black tracking-widest text-blue-400">Reported By</span>
+                  </div>
+                  <p className="text-white font-bold truncate">{item.createdBy?.name || "Verified Campus User"}</p>
+                </div>
+              </div>
 
-              <Button variant="outline" className="flex-1" onClick={handleReport}>
-                <Flag className="h-4 w-4 mr-2" />
-                Report
-              </Button>
+              {/* ACTIONS */}
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                <div className="flex gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 h-14 rounded-xl bg-white/5 border-white/10 hover:bg-white/10 text-white font-bold tracking-wide"
+                    onClick={handleShare}
+                  >
+                    <Share2 className="h-5 w-5 mr-3 text-[#4af8e3]" />
+                    Broadcast
+                  </Button>
+
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 h-14 rounded-xl bg-white/5 border-white/10 hover:bg-white/10 text-white font-bold tracking-wide"
+                    onClick={handleReport}
+                  >
+                    <Flag className="h-5 w-5 mr-3 text-[#ff2e97]" />
+                    Flag Anomaly
+                  </Button>
+                </div>
+
+                {/* DYNAMIC CASE-BY-CASE ACTIONS */}
+                {isAuthenticated && user?._id === item?.createdBy && (
+                  <Button 
+                    className="w-full h-16 bg-gradient-to-r from-rose-500 to-[#ff2e97] text-white rounded-2xl font-black text-lg shadow-xl shadow-rose-900/20 active:scale-95 transition-all"
+                    onClick={() => setShowClaimDialog(true)}
+                  >
+                    Terminate Protocol (Claimed)
+                  </Button>
+                )}
+
+                {isAuthenticated && item.type === "found" && user?.role !== "admin" && user?._id !== item?.createdBy && hasMatchForThisItem && (
+                  <Button 
+                    className="w-full h-16 bg-gradient-to-r from-[#6200EE] to-[#4af8e3] text-white rounded-2xl font-black text-lg shadow-xl shadow-purple-900/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                    onClick={() => setShowClaimDialog(true)}
+                  >
+                    <ShieldCheck className="h-6 w-6" />
+                    Initiate Secure Handover
+                  </Button>
+                )}
+                
+                {!isAuthenticated && (
+                  <div className="bg-white/5 border border-white/5 p-6 rounded-2xl text-center">
+                    <p className="text-purple-200/50 text-sm mb-4 font-medium italic">Secure authentication required to interact with this object.</p>
+                    <Button 
+                      className="bg-white text-black font-bold h-12 px-8 rounded-xl hover:bg-white/90"
+                      onClick={() => navigate('/auth')}
+                    >
+                      Authenticate to Claim
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
-
-            {/* CLAIM BUTTON (ONLY OWNER OF LOST ITEM) */}
-            {isAuthenticated &&
-              user?._id === item?.createdBy &&
-              item.type === "lost" && (
-                <Button className="w-full mt-6 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-[0_0_15px_rgba(225,29,72,0.4)] transition-all" onClick={() => setShowClaimDialog(true)}>
-                  Mark as Claimed
-                </Button>
-              )}
-
-            {/* REQUEST HANDOVER BUTTON — only the matched user, never admins */}
-            {isAuthenticated &&
-              item.type === "found" &&
-              user?.role !== "admin" &&
-              hasMatchForThisItem && (
-                <Button className="w-full mt-6 bg-gradient-to-r from-teal-400 to-emerald-500 hover:from-teal-500 hover:to-emerald-600 text-white shadow-[0_0_15px_rgba(45,212,191,0.4)] font-bold transition-all" onClick={() => setShowClaimDialog(true)}>
-                  Request Secure Handover
-                </Button>
-              )}
           </div>
         </div>
       </main>
 
-      <Footer />
+      <div className="hidden md:block">
+        <Footer />
+      </div>
 
-      {/* CLAIM CONFIRMATION POPUP */}
+      {/* ALERT DIALOG - STYLED */}
       <AlertDialog open={showClaimDialog} onOpenChange={setShowClaimDialog}>
-        <AlertDialogContent className="bg-[#16052a] text-white border-white/10">
+        <AlertDialogContent className="bg-[#16052a] text-white border-white/10 rounded-[2rem] p-10 max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {item.type === "lost" ? "Mark as Claimed?" : "Request Secure Handover?"}
+            <AlertDialogTitle className="text-3xl font-extrabold font-['Plus_Jakarta_Sans'] tracking-tight">
+              {item.type === "lost" ? "Terminate Protocol?" : "Secure Handover?"}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-purple-200/70">
+            <AlertDialogDescription className="text-lg text-purple-200/50 py-4 leading-relaxed">
               {item.type === "lost"
-                ? "Once claimed, this item will be removed from public listings."
-                : "This will notify Campus Security Admins to arrange a secure physical handover."}
+                ? "This will permanently remove the item from the Global Directory. Confirm if you have successfully reclaimed it."
+                : "Initiating this protocol will notify Campus Security. They will mediate a physical verification and secure exchange of the object."}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-transparent border-white/10 hover:bg-white/10 text-white">Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="gap-4">
+            <AlertDialogCancel className="bg-transparent border-white/10 hover:bg-white/10 text-white rounded-xl h-12 px-8 flex-1">
+              Abort
+            </AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleClaim}
-              className={item.type === "lost" ? "bg-rose-600 text-white hover:bg-rose-700" : "bg-emerald-500 text-white hover:bg-emerald-600"}
+              className={`rounded-xl h-12 px-8 flex-1 font-bold ${item.type === "lost" ? "bg-[#ff2e97] hover:bg-[#ff2e97]/90 text-white" : "bg-[#4af8e3] hover:bg-[#4af8e3]/90 text-[#16052a]"}`}
             >
-              Confirm
+              Verify & Complete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

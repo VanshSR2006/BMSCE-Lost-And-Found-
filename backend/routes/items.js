@@ -38,6 +38,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       location,
       date,
       image,
+      thumbnail,
       category,
     } = req.body;
 
@@ -53,6 +54,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       location,
       date,
       image: image || null,
+      thumbnail: thumbnail || null,
       category,
       createdBy: req.user.id,
     });

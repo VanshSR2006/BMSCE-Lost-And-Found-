@@ -46,6 +46,11 @@ const ItemSchema = new mongoose.Schema(
       default: null,
     },
 
+    thumbnail: {
+      type: String,
+      default: null,
+    },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

@@ -182,6 +182,7 @@ const Directory = () => {
                       date={item.date}
                       type={item.type}
                       imageUrl={item.image || undefined}
+                      thumbnail={item.thumbnail || undefined}
                     />
                   </div>
                 </div>
