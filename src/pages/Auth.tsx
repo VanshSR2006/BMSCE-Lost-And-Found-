@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 
-const GOOGLE_CLIENT_ID = "AQ.Ab8RN6JGJHrnFOUJT692BSyPLuqOAnmBWgJlD_qWUmDuqAfRLg";
+const GOOGLE_CLIENT_ID = "950515933140-hae51v4n4qr94n198g7n7huh02afsqmf.apps.googleusercontent.com";
 
 const Auth = () => {
   const navigate = useNavigate();

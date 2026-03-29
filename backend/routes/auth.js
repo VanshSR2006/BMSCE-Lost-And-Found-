@@ -92,7 +92,7 @@ router.get("/me", authMiddleware, async (req, res) => {
 
 // ---------------- GOOGLE SIGN IN ----------------
 const { OAuth2Client } = require("google-auth-library");
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || "AQ.Ab8RN6JGJHrnFOUJT692BSyPLuqOAnmBWgJlD_qWUmDuqAfRLg");
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || "950515933140-hae51v4n4qr94n198g7n7huh02afsqmf.apps.googleusercontent.com");
 
 router.post("/google", async (req, res) => {
   try {
