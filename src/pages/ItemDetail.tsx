@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import {
   ArrowLeft,
   MapPin,
@@ -34,6 +35,12 @@ const ItemDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const { notifications } = useNotifications();
+
+  // Only show handover button if this user has a match notification pointing to this found item
+  const hasMatchForThisItem = notifications.some(
+    (n) => n.type === "match" && n.foundItem?._id === id
+  );
 
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -78,16 +85,23 @@ const ItemDetail = () => {
   };
 
   // -------------------------
-  // CLAIM ITEM (ONLY OWNER)
+  // CLAIM ITEM / REQUEST HANDOVER
   // -------------------------
   const handleClaim = async () => {
     try {
-      await api.put(`/items/${item._id}/claim`); // Backend should delete / archive the item
-      toast.success("Item marked as claimed!");
+      await api.put(`/items/${item._id}/claim`);
+      toast.success(
+        item.type === "lost" 
+          ? "Item marked as claimed!" 
+          : "Handover request sent to Admins!"
+      );
       setShowClaimDialog(false);
-      navigate("/my-posts");
-    } catch (err) {
-      toast.error("You are not allowed to claim this");
+      
+      if(item.type === "lost") {
+        navigate("/my-posts");
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to process request");
     }
   };
 
@@ -203,10 +217,20 @@ const ItemDetail = () => {
 
             {/* CLAIM BUTTON (ONLY OWNER OF LOST ITEM) */}
             {isAuthenticated &&
-              user?._id===item?.createdby &&
+              user?._id === item?.createdBy &&
               item.type === "lost" && (
-                <Button className="w-full mt-6" onClick={() => setShowClaimDialog(true)}>
+                <Button className="w-full mt-6 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-[0_0_15px_rgba(225,29,72,0.4)] transition-all" onClick={() => setShowClaimDialog(true)}>
                   Mark as Claimed
+                </Button>
+              )}
+
+            {/* REQUEST HANDOVER BUTTON — only the matched user, never admins */}
+            {isAuthenticated &&
+              item.type === "found" &&
+              user?.role !== "admin" &&
+              hasMatchForThisItem && (
+                <Button className="w-full mt-6 bg-gradient-to-r from-teal-400 to-emerald-500 hover:from-teal-500 hover:to-emerald-600 text-white shadow-[0_0_15px_rgba(45,212,191,0.4)] font-bold transition-all" onClick={() => setShowClaimDialog(true)}>
+                  Request Secure Handover
                 </Button>
               )}
           </div>
@@ -217,17 +241,26 @@ const ItemDetail = () => {
 
       {/* CLAIM CONFIRMATION POPUP */}
       <AlertDialog open={showClaimDialog} onOpenChange={setShowClaimDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-[#16052a] text-white border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle>Mark as Claimed?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Once claimed, this item will be removed from public listings.
+            <AlertDialogTitle>
+              {item.type === "lost" ? "Mark as Claimed?" : "Request Secure Handover?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-purple-200/70">
+              {item.type === "lost"
+                ? "Once claimed, this item will be removed from public listings."
+                : "This will notify Campus Security Admins to arrange a secure physical handover."}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClaim}>Confirm</AlertDialogAction>
+            <AlertDialogCancel className="bg-transparent border-white/10 hover:bg-white/10 text-white">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleClaim}
+              className={item.type === "lost" ? "bg-rose-600 text-white hover:bg-rose-700" : "bg-emerald-500 text-white hover:bg-emerald-600"}
+            >
+              Confirm
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,11 +1,20 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { api } from "@/utils/api";
 
-interface User {
+/* =====================
+   TYPES
+===================== */
+export interface User {
   _id: string;
   name: string;
   email: string;
-  isAdmin?: boolean;
+  role: "user" | "admin" | "student";
 }
 
 interface AuthContextValue {
@@ -13,33 +22,34 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (name: string, email: string, password: string) => Promise<boolean>;
+  loginWithGoogle: (credential: string) => Promise<boolean>;
   logout: () => void;
 }
 
+/* =====================
+   CONTEXT
+===================== */
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/* =====================
+   PROVIDER
+===================== */
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  // Load user on refresh
+  // ✅ restore user on refresh
   useEffect(() => {
+    const storedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
-    if (!token) return;
 
-    api
-      .get("/auth/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        setUser(res.data.user);
-      })
-      .catch(() => {
-        localStorage.removeItem("token");
-        setUser(null);
-      });
+    if (storedUser && token) {
+      setUser(JSON.parse(storedUser));
+    }
   }, []);
 
-  // SIGNUP
+  /* =====================
+      SIGNUP
+  ===================== */
   const signup = async (name: string, email: string, password: string) => {
     try {
       const res = await api.post("/auth/signup", {
@@ -49,29 +59,73 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
       setUser(res.data.user);
+
+      // notify listeners (notifications context) just in case
+      window.dispatchEvent(new Event("storage"));
+
       return true;
-    } catch (e) {
+    } catch (error) {
+      console.error("Signup failed", error);
       return false;
     }
   };
 
-  // LOGIN
+  /* =====================
+      LOGIN  ✅
+  ===================== */
   const login = async (email: string, password: string) => {
     try {
-      const res = await api.post("/auth/login", { email, password });
+      const response = await api.post("/auth/login", { email, password });
 
-      localStorage.setItem("token", res.data.token);
-      setUser(res.data.user);
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+
+      setUser(response.data.user);
+
+      // ✅ force notification reload after login
+      window.dispatchEvent(new Event("storage"));
+
       return true;
     } catch (e) {
+      console.error("Login failed", e);
       return false;
     }
   };
 
+  /* =====================
+      LOGIN WITH GOOGLE 
+  ===================== */
+  const loginWithGoogle = async (credential: string) => {
+    try {
+      const response = await api.post("/auth/google", { token: credential });
+
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+
+      setUser(response.data.user);
+
+      // force notification reload after login
+      window.dispatchEvent(new Event("storage"));
+
+      return true;
+    } catch (e) {
+      console.error("Google Login failed", e);
+      return false;
+    }
+  };
+
+  /* =====================
+      LOGOUT
+  ===================== */
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setUser(null);
+
+    // also tell listeners auth changed
+    window.dispatchEvent(new Event("storage"));
   };
 
   return (
@@ -81,6 +135,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!user,
         login,
         signup,
+        loginWithGoogle,
         logout,
       }}
     >
@@ -89,6 +144,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+/* =====================
+   HOOK
+===================== */
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Join the Network | CampusVibe</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200..800&amp;family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#6200EE",
+              "vibrant-purple": "#b89fff",
+              "neon-teal": "#4af8e3",
+              "deep-space": "#16052a",
+              "glass-bg": "rgba(255, 255, 255, 0.05)",
+              "glass-border": "rgba(255, 255, 255, 0.1)",
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {
+                "DEFAULT": "0.125rem", 
+                "lg": "0.5rem", 
+                "xl": "1rem", 
+                "2xl": "1.5rem",
+                "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background: radial-gradient(circle at top right, #240e3b, #16052a);
+            min-height: 100dvh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .glow-button {
+            background: linear-gradient(135deg, #6200EE 0%, #b89fff 100%);
+            box-shadow: 0 0 20px rgba(184, 159, 255, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glow-button:hover {
+            box-shadow: 0 0 30px rgba(184, 159, 255, 0.6);
+            transform: translateY(-2px);
+        }
+        .mesh-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 80% 20%, rgba(184, 159, 255, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 20% 80%, rgba(74, 248, 227, 0.1) 0%, transparent 40%);
+        }
+    </style>
+</head>
+<body class="font-body text-purple-50 antialiased overflow-x-hidden">
+<div class="mesh-gradient"></div>
+<!-- Top App Bar -->
+<nav class="fixed top-0 w-full z-50 bg-purple-950/60 backdrop-blur-xl flex justify-between items-center px-6 h-20 shadow-[0_8px_32px_0_rgba(241,223,255,0.06)]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b89fff] active:scale-95 duration-200 cursor-pointer" data-icon="menu">menu</span>
+<span class="text-2xl font-extrabold tracking-tighter text-white font-['Plus_Jakarta_Sans']">CampusVibe</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-purple-900/50 flex items-center justify-center border border-white/10 active:scale-95 duration-200 cursor-pointer overflow-hidden">
+<span class="material-symbols-outlined text-purple-200" data-icon="person">person</span>
+</div>
+</nav>
+<main class="min-h-screen pt-24 pb-32 flex flex-col items-center justify-center px-6">
+<div class="w-full max-w-md">
+<!-- Header Section -->
+<header class="mb-12 text-center">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-[0.2em] font-bold text-neon-teal mb-4">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-teal opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-neon-teal"></span>
+</span>
+                    Join the Network
+                </div>
+<h1 class="font-headline text-4xl font-extrabold tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white to-purple-200">
+                    Create Account
+                </h1>
+<p class="text-purple-200/60 text-sm">Elevate your campus experience with the next-gen recovery network.</p>
+</header>
+<!-- Registration Form -->
+<form class="space-y-6">
+<!-- Full Name -->
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-300/50 ml-2">Full Name</label>
+<div class="glass-card rounded-2xl p-1 transition-all focus-within:ring-2 focus-within:ring-vibrant-purple/30">
+<input class="w-full px-5 py-4 bg-transparent border-none focus:ring-0 text-white placeholder:text-purple-300/20 text-sm" placeholder="Ex. Alex Rivers" type="text"/>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- ID / USN Alternative -->
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-300/50 ml-2">Student ID</label>
+<div class="glass-card rounded-2xl p-1 transition-all focus-within:ring-2 focus-within:ring-vibrant-purple/30">
+<input class="w-full px-5 py-4 bg-transparent border-none focus:ring-0 text-white placeholder:text-purple-300/20 text-sm uppercase" placeholder="CV-2024-X" type="text"/>
+</div>
+</div>
+<!-- Department -->
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-300/50 ml-2">Faculty</label>
+<div class="glass-card rounded-2xl p-1 relative overflow-hidden">
+<select class="w-full px-5 py-4 bg-transparent border-none focus:ring-0 text-purple-100 text-sm appearance-none cursor-pointer">
+<option class="bg-deep-space">Engineering</option>
+<option class="bg-deep-space">Digital Arts</option>
+<option class="bg-deep-space">Cybernetics</option>
+<option class="bg-deep-space">Management</option>
+<option class="bg-deep-space">Other</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-purple-300/40 pointer-events-none" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Email -->
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-300/50 ml-2">Network Email</label>
+<div class="glass-card rounded-2xl p-1 transition-all focus-within:ring-2 focus-within:ring-vibrant-purple/30">
+<input class="w-full px-5 py-4 bg-transparent border-none focus:ring-0 text-white placeholder:text-purple-300/20 text-sm" placeholder="name@campusvibe.edu" type="email"/>
+</div>
+</div>
+<!-- Password -->
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-300/50 ml-2">Access Key</label>
+<div class="glass-card rounded-2xl p-1 flex items-center transition-all focus-within:ring-2 focus-within:ring-vibrant-purple/30">
+<input class="w-full px-5 py-4 bg-transparent border-none focus:ring-0 text-white placeholder:text-purple-300/20 text-sm" placeholder="••••••••" type="password"/>
+<span class="material-symbols-outlined px-4 text-purple-300/40 cursor-pointer hover:text-white transition-colors" data-icon="visibility">visibility</span>
+</div>
+<p class="text-[10px] text-purple-300/40 mt-1 px-2 italic">Minimum 8 characters with biometric sync capability.</p>
+</div>
+<!-- Action Button -->
+<button class="w-full glow-button text-white font-extrabold py-5 rounded-full flex items-center justify-center gap-3 mt-8 active:scale-95 duration-200" type="submit">
+<span class="tracking-tight">INITIALIZE ACCOUNT</span>
+<span class="material-symbols-outlined text-xl" data-icon="bolt">bolt</span>
+</button>
+</form>
+<footer class="mt-12 text-center">
+<p class="text-sm text-purple-200/50">
+                    Neural link already established? 
+                    <a class="text-neon-teal font-bold hover:text-white transition-all underline decoration-neon-teal/30 underline-offset-4" href="#">Sign In</a>
+</p>
+</footer>
+</div>
+</main>
+<!-- Bottom Nav Bar -->
+<nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-[#240e3b]/60 backdrop-blur-2xl rounded-full px-2 py-3 flex justify-around items-center z-50 shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/5">
+<a class="flex flex-col items-center justify-center text-purple-200/50 px-4 py-2 hover:text-white transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
+<span class="font-['Inter'] text-[11px] uppercase tracking-wider font-semibold">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#4af8e3] text-[#16052a] rounded-full px-5 py-2 scale-110 shadow-[0_0_15px_rgba(74,248,227,0.4)] active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined mb-0.5" data-icon="campaign">campaign</span>
+<span class="font-['Inter'] text-[9px] uppercase tracking-wider font-extrabold">Report</span>
+</a>
+<a class="flex flex-col items-center justify-center text-purple-200/50 px-4 py-2 hover:text-white transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="category">category</span>
+<span class="font-['Inter'] text-[11px] uppercase tracking-wider font-semibold">Items</span>
+</a>
+<a class="flex flex-col items-center justify-center text-purple-200/50 px-4 py-2 hover:text-white transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+<span class="font-['Inter'] text-[11px] uppercase tracking-wider font-semibold">Profile</span>
+</a>
+</nav>
+<!-- Shared Footer Component -->
+<footer class="w-full py-12 pb-32 bg-[#16052a] flex flex-col items-center gap-4 text-center">
+<div class="flex gap-8">
+<a class="font-['Inter'] text-xs text-purple-300/40 hover:text-[#b89fff] transition-opacity duration-200" href="#">Privacy</a>
+<a class="font-['Inter'] text-xs text-purple-300/40 hover:text-[#b89fff] transition-opacity duration-200" href="#">Support</a>
+<a class="font-['Inter'] text-xs text-purple-300/40 hover:text-[#b89fff] transition-opacity duration-200" href="#">Guidelines</a>
+</div>
+<div class="text-sm font-bold text-purple-300/60 font-['Inter']">CampusVibe Network</div>
+<p class="font-['Inter'] text-xs text-purple-300/40">© 2024 Kinetic Prism Campus. All rights reserved.</p>
+</footer>
+</body></html>

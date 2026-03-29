@@ -1,0 +1,27 @@
+{
+  "name": "BMSCE Reconnect",
+  "short_name": "Reconnect",
+  "description": "Lost & Found platform for BMSCE campus — report, search, and reclaim your belongings.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#16052a",
+  "theme_color": "#16052a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "utilities"],
+  "lang": "en",
+  "scope": "/"
+}

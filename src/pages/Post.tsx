@@ -1,11 +1,28 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Upload, X } from "lucide-react";
+
 import { compressImage } from "@/utils/imageUtils";
+import { api } from "@/utils/api";
+import { useAuth } from "@/contexts/AuthContext";
+
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+
 import {
   Select,
   SelectContent,
@@ -13,231 +30,169 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { toast } from "sonner";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { api } from "@/utils/api";
-import { useAuth } from "@/contexts/AuthContext";
 
 const Post = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [formData, setFormData] = useState({
     type: "lost",
     title: "",
     description: "",
-    category: "",
     location: "",
     date: "",
     contactName: user?.name || "",
     contactPhone: "",
     contactEmail: user?.email || "",
+    category: "", // ✅ IMPORTANT
   });
 
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>("");
+  const [imagePreview, setImagePreview] = useState("");
   const [isCompressing, setIsCompressing] = useState(false);
 
+  /* ---------------- IMAGE ---------------- */
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be less than 5MB");
+      toast.error("Image must be under 5MB");
       return;
     }
 
     setIsCompressing(true);
+
     try {
       const compressed = await compressImage(file);
-      setImageFile(file);
       setImagePreview(compressed.base64);
-      toast.success("Image uploaded");
+      toast.success("Image ready");
     } catch {
-      toast.error("Error processing image");
+      toast.error("Failed to process image");
     } finally {
       setIsCompressing(false);
     }
   };
 
+  /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isAuthenticated) {
+      toast.error("Please login to post an item");
+      navigate("/auth");
+      return;
+    }
 
     if (
       !formData.title ||
       !formData.description ||
-      !formData.category ||
       !formData.location ||
-      !formData.date
+      !formData.date ||
+      !formData.contactPhone ||
+      !formData.category
     ) {
-      toast.error("Fill all required fields");
-      return;
-    }
-
-    if (!formData.contactPhone) {
-      toast.error("Contact phone required");
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      toast.error("You must be logged in to post");
+      toast.error("Please fill all required fields");
       return;
     }
 
     try {
-      const res = await api.post(
-        "/items/create",
-        {
-          type: formData.type,
-          title: formData.title,
-          description: formData.description,
-          category: formData.category,
-          location: formData.location,
-          date: formData.date,
-          image: imagePreview || null,
-          contactName: formData.contactName,
-          contactPhone: formData.contactPhone,
-          contactEmail: formData.contactEmail,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      toast.success("Item posted successfully!");
-
-      setFormData({
-        type: "lost",
-        title: "",
-        description: "",
-        category: "",
-        location: "",
-        date: "",
-        contactName: user?.name || "",
-        contactPhone: "",
-        contactEmail: user?.email || "",
+      await api.post("/items/create", {
+        ...formData,
+        image: imagePreview || null,
       });
-      setImagePreview("");
-      setImageFile(null);
 
+      toast.success("Item posted successfully ✅");
       setTimeout(() => navigate("/"), 1200);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to post item");
+      toast.error(
+        err.response?.data?.message || "Failed to post item"
+      );
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col font-['Inter']">
       <Navbar />
 
-      <main className="flex-1 container mx-auto px-4 py-12">
-        <div className="max-w-3xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">Post an Item</h1>
-            <p className="text-muted-foreground">
-              Fill in the details to post a lost or found item
-            </p>
-          </div>
+      <main className="flex-1 container mx-auto px-4 py-24 sm:py-32">
+        <div className="max-w-3xl mx-auto relative group">
+          
+          {/* Decorative glowing blob */}
+          <div className="absolute -inset-1 bg-gradient-to-r from-[#6200EE] to-[#4af8e3] rounded-[3rem] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+          
+          <div className="relative bg-[#240e3b]/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-8 sm:p-12 shadow-2xl z-10">
+            <div className="mb-10 text-center">
+              <span className="inline-block px-3 py-1 rounded-full bg-white/5 text-[#4af8e3] text-xs font-bold tracking-widest uppercase mb-4 border border-white/10">
+                Secure Submission
+              </span>
+              <h2 className="text-4xl font-extrabold text-white font-['Plus_Jakarta_Sans'] tracking-tight mb-2">Item Details</h2>
+              <p className="text-purple-200/50">Provide specific metrics for the neural alignment.</p>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Item Details</CardTitle>
-              <CardDescription>
-                Add as much info as possible to help others identify the item
-              </CardDescription>
-            </CardHeader>
+            <form onSubmit={handleSubmit} className="space-y-8">
 
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-3">
-                  <Label>Item Type *</Label>
-                  <RadioGroup
-                    value={formData.type}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, type: value })
-                    }
-                    className="flex gap-4"
+              {/* ✅ LOST / FOUND */}
+              <div className="bg-[#16052a]/50 p-6 rounded-2xl border border-white/5">
+                <Label className="text-white font-bold mb-4 block uppercase tracking-wider text-xs">Mission Type <span className="text-[#ff2e97]">*</span></Label>
+                <div className="flex gap-6 mt-3">
+                  <div 
+                    className={`flex items-center gap-3 p-4 rounded-xl border flex-1 cursor-pointer transition-all ${formData.type === 'lost' ? 'bg-[#ff2e97]/10 border-[#ff2e97] shadow-[0_0_15px_rgba(255,46,151,0.2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
+                    onClick={() => setFormData({ ...formData, type: 'lost' })}
                   >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="lost" id="lost" />
-                      <Label htmlFor="lost" className="cursor-pointer">
-                        Lost Item
-                      </Label>
+                    <div className={`flex items-center justify-center w-4 h-4 rounded-full border ${formData.type === 'lost' ? 'border-[#ff2e97]' : 'border-white/30'}`}>
+                      {formData.type === 'lost' && <div className="w-2 h-2 rounded-full bg-[#ff2e97]"></div>}
                     </div>
-
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="found" id="found" />
-                      <Label htmlFor="found" className="cursor-pointer">
-                        Found Item
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Title *</Label>
-                  <Input
-                    placeholder="Black Wallet"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Description *</Label>
-                  <Textarea
-                    placeholder="Describe the item in detail..."
-                    rows={4}
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Category *</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category: value })
-                    }
+                    <span className="text-white font-bold">Lost</span>
+                  </div>
+                  
+                  <div 
+                    className={`flex items-center gap-3 p-4 rounded-xl border flex-1 cursor-pointer transition-all ${formData.type === 'found' ? 'bg-[#4af8e3]/10 border-[#4af8e3] shadow-[0_0_15px_rgba(74,248,227,0.2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
+                    onClick={() => setFormData({ ...formData, type: 'found' })}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Electronics">Electronics</SelectItem>
-                      <SelectItem value="Books">Books</SelectItem>
-                      <SelectItem value="Wallet">Wallet</SelectItem>
-                      <SelectItem value="Keys">Keys</SelectItem>
-                      <SelectItem value="Water Bottle">Water Bottle</SelectItem>
-                      <SelectItem value="Watch">Watch</SelectItem>
-                      <SelectItem value="Clothing">Clothing</SelectItem>
-                      <SelectItem value="ID Card">ID Card</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <div className={`flex items-center justify-center w-4 h-4 rounded-full border ${formData.type === 'found' ? 'border-[#4af8e3]' : 'border-white/30'}`}>
+                      {formData.type === 'found' && <div className="w-2 h-2 rounded-full bg-[#4af8e3]"></div>}
+                    </div>
+                    <span className="text-white font-bold">Found</span>
+                  </div>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label>Location *</Label>
+              {/* TITLE */}
+              <div>
+                <Label className="text-purple-200 uppercase text-xs font-bold tracking-wider mb-2 block">Item Signature (Title) <span className="text-[#ff2e97]">*</span></Label>
+                <Input
+                  className="bg-[#16052a]/80 border-white/10 text-white h-14 rounded-xl focus-visible:ring-[#b89fff]"
+                  placeholder="e.g. Blue Hydro Flask"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                />
+              </div>
+
+              {/* DESCRIPTION */}
+              <div>
+                <Label className="text-purple-200 uppercase text-xs font-bold tracking-wider mb-2 block">Visual Description <span className="text-[#ff2e97]">*</span></Label>
+                <Textarea
+                  rows={4}
+                  className="bg-[#16052a]/80 border-white/10 text-white rounded-xl focus-visible:ring-[#b89fff] resize-none"
+                  placeholder="Brand, color, visible scratches..."
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* LOCATION */}
+                <div>
+                  <Label className="text-purple-200 uppercase text-xs font-bold tracking-wider mb-2 block">Last Known Sector (Location) <span className="text-[#ff2e97]">*</span></Label>
                   <Input
-                    placeholder="Library 2nd Floor"
+                    className="bg-[#16052a]/80 border-white/10 text-white h-14 rounded-xl focus-visible:ring-[#b89fff]"
+                    placeholder="e.g. BS Narayan Hall"
                     value={formData.location}
                     onChange={(e) =>
                       setFormData({ ...formData, location: e.target.value })
@@ -245,10 +200,37 @@ const Post = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Date *</Label>
+                {/* CATEGORY */}
+                <div>
+                  <Label className="text-purple-200 uppercase text-xs font-bold tracking-wider mb-2 block">Category <span className="text-[#ff2e97]">*</span></Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, category: value })
+                    }
+                  >
+                    <SelectTrigger className="bg-[#16052a]/80 border-white/10 text-white h-14 rounded-xl focus:ring-[#b89fff]">
+                      <SelectValue placeholder="Identify category" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#240e3b] border-white/10 text-white">
+                      <SelectItem value="wallet">Wallet</SelectItem>
+                      <SelectItem value="id-card">ID Card</SelectItem>
+                      <SelectItem value="bottle">Bottle</SelectItem>
+                      <SelectItem value="stationery">Stationery</SelectItem>
+                      <SelectItem value="electronics">Electronics</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* DATE */}
+                <div>
+                  <Label className="text-purple-200 uppercase text-xs font-bold tracking-wider mb-2 block">Date of Anomaly <span className="text-[#ff2e97]">*</span></Label>
                   <Input
                     type="date"
+                    className="bg-[#16052a]/80 border-white/10 text-white h-14 rounded-xl outline-none focus-visible:ring-[#b89fff] [color-scheme:dark]"
                     value={formData.date}
                     onChange={(e) =>
                       setFormData({ ...formData, date: e.target.value })
@@ -256,95 +238,76 @@ const Post = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Contact Name *</Label>
+                {/* CONTACT */}
+                <div>
+                  <Label className="text-purple-200 uppercase text-xs font-bold tracking-wider mb-2 block">Comm Link (Phone) <span className="text-[#ff2e97]">*</span></Label>
                   <Input
-                    placeholder="Your name"
-                    value={formData.contactName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contactName: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Contact Phone *</Label>
-                  <Input
-                    type="tel"
-                    placeholder="98xxxxxxxx"
+                    className="bg-[#16052a]/80 border-white/10 text-white h-14 rounded-xl focus-visible:ring-[#b89fff]"
+                    placeholder="+91..."
                     value={formData.contactPhone}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        contactPhone: e.target.value,
-                      })
+                      setFormData({ ...formData, contactPhone: e.target.value })
                     }
                   />
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label>Contact Email (optional)</Label>
-                  <Input
-                    type="email"
-                    placeholder="your.email@bmsce.ac.in"
-                    value={formData.contactEmail}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        contactEmail: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Image (optional)</Label>
-                  {imagePreview ? (
-                    <div className="relative">
-                      <img
-                        src={imagePreview}
-                        className="w-full h-48 object-cover rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2"
-                        onClick={() => {
-                          setImagePreview("");
-                          setImageFile(null);
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+              {/* IMAGE */}
+              <div>
+                <Label className="text-purple-200 uppercase text-xs font-bold tracking-wider mb-2 block">Visual Evidence (Optional)</Label>
+                {imagePreview ? (
+                  <div className="relative group/img rounded-2xl overflow-hidden border border-white/10 shadow-xl">
+                    <img
+                      src={imagePreview}
+                      className="w-full h-48 object-cover group-hover/img:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-black/20 group-hover/img:bg-black/40 transition-colors"></div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 rounded-full h-10 w-10 shadow-lg"
+                      onClick={() => setImagePreview("")}
+                    >
+                      <X size={18} />
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="border-dashed border-2 border-white/20 hover:border-[#4af8e3] bg-[#16052a]/50 hover:bg-white/5 transition-all p-10 rounded-2xl text-center cursor-pointer block group/upload">
+                    <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4 group-hover/upload:scale-110 group-hover/upload:bg-[#4af8e3]/10 transition-all">
+                      <Upload className="text-[#4af8e3]" size={24} />
                     </div>
-                  ) : (
-                    <label className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer block">
-                      <Upload className="h-8 w-8 mx-auto mb-2" />
-                      <p className="text-sm">
-                        {isCompressing ? "Compressing..." : "Upload image"}
-                      </p>
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        disabled={isCompressing}
-                      />
-                    </label>
-                  )}
-                </div>
+                    <span className="text-white font-bold block mb-1">Upload Image</span>
+                    <span className="text-purple-200/50 text-xs">PNG, JPG up to 5MB</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={handleImageChange}
+                      disabled={isCompressing}
+                    />
+                  </label>
+                )}
+              </div>
 
-                <Button type="submit" className="w-full">
-                  Post Item
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+              <div className="pt-6">
+                <button 
+                  type="submit" 
+                  className="w-full bg-gradient-to-r from-[#6200EE] to-[#ff2e97] text-white h-16 rounded-2xl font-bold text-lg shadow-[0_10px_30px_rgba(255,46,151,0.3)] hover:shadow-[0_15px_40px_rgba(255,46,151,0.5)] active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined">upload</span>
+                  Engage Protocol
+                </button>
+              </div>
+
+            </form>
+          </div>
         </div>
       </main>
 
-      <Footer />
+      <div className="hidden md:block">
+        <Footer />
+      </div>
     </div>
   );
 };

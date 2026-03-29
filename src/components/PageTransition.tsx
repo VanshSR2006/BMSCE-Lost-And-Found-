@@ -1,29 +1,32 @@
-import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 
-interface PageTransitionProps {
-  children: React.ReactNode;
-}
-
-const PageTransition = ({ children }: PageTransitionProps) => {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    // Small delay to ensure smooth animation
-    const timer = setTimeout(() => {
-      setIsVisible(true);
-    }, 50);
-
-    return () => clearTimeout(timer);
-  }, []);
-
+const PageTransition = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div
-      className={`transition-all duration-500 ease-out ${
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-      }`}
+    <motion.div
+      initial={{
+        opacity: 0,
+        scale: 0.985,
+      }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+        transition: {
+          duration: 0.55,
+          ease: "easeOut",
+        },
+      }}
+      exit={{
+        opacity: 0,
+        scale: 0.99,
+        transition: {
+          duration: 0.35,
+          ease: "easeInOut",
+        },
+      }}
+      className="min-h-screen w-full"
     >
       {children}
-    </div>
+    </motion.div>
   );
 };
 

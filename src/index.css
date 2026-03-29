@@ -142,6 +142,19 @@ All colors MUST be HSL.
 }
 
 @layer utilities {
+  /* 3D Glassmorphism utilities */
+  .glass {
+    @apply bg-white/40 dark:bg-black/40 backdrop-blur-xl border border-white/30 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)];
+  }
+
+  .glass-panel {
+    @apply bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl border-t border-l border-white/40 dark:border-white/10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.4)];
+  }
+
+  .glass-card {
+    @apply bg-gradient-to-br from-white/40 to-white/10 dark:from-white/10 dark:to-transparent backdrop-blur-lg border border-white/30 dark:border-white/10 shadow-lg;
+  }
+
   /* Animation utilities */
   .animate-delay-100 {
     animation-delay: 0.1s;

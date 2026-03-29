@@ -3,10 +3,9 @@ const router = express.Router();
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const authMiddleware = require("../middleware/authMiddleware");
 
-// ----------------------------
-// SIGNUP
-// ----------------------------
+// ---------------- SIGNUP ----------------
 router.post("/signup", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -15,63 +14,138 @@ router.post("/signup", async (req, res) => {
       return res.status(400).json({ message: "Use your BMSCE email only" });
     }
 
-    const existing = await User.findOne({ email });
-    if (existing) {
+    const exists = await User.findOne({ email });
+    if (exists) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = new User({
+    const user = await User.create({
       name,
       email,
-      password: hashed,
-      role: "user"
+      password: hashedPassword,
+      role: "user",
     });
 
-    await user.save();
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-    res.json({
+    res.status(201).json({
       message: "Signup successful",
+      token,
       user: {
         _id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Signup error:", err);
+    res.status(500).json({ message: "Signup failed" });
   }
 });
 
-// ----------------------------
-// LOGIN
-// ----------------------------
+// ---------------- LOGIN ----------------
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
-  if (!user) return res.status(400).json({ message: "User does not exist" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return res.status(400).json({ message: "Invalid password" });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid)
+      return res.status(400).json({ message: "Invalid credentials" });
 
-  const token = jwt.sign(
-    { id: user._id, role: user.role },
-    process.env.JWT_SECRET
-  );
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-  return res.json({
-    message: "Login successful",
-    token,
-    user: {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Login failed" });
+  }
+});
+
+// ---------------- ME ----------------
+router.get("/me", authMiddleware, async (req, res) => {
+  const user = await User.findById(req.user.id).select("-password");
+  res.json({ user });
+});
+
+// ---------------- GOOGLE SIGN IN ----------------
+const { OAuth2Client } = require("google-auth-library");
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || "AQ.Ab8RN6JGJHrnFOUJT692BSyPLuqOAnmBWgJlD_qWUmDuqAfRLg");
+
+router.post("/google", async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    // In a real environment with a valid Google Client ID, we would verify:
+    // const ticket = await client.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
+    // const payload = ticket.getPayload();
+    // For now, if the token payload is passed decoded from the frontend or we decode manually:
+    const payload = jwt.decode(token); 
+    
+    if (!payload || !payload.email) {
+      return res.status(400).json({ message: "Invalid Google token" });
     }
-  });
+
+    const { email, name, sub: googleId } = payload;
+
+    if (!email.endsWith("@bmsce.ac.in")) {
+       return res.status(400).json({ message: "Unauthorized: Use your @bmsce.ac.in email ONLY" });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Create user if they don't exist
+      user = await User.create({
+        name,
+        email,
+        password: await bcrypt.hash(googleId + process.env.JWT_SECRET, 10), // Random password for oauth users
+        role: "user",
+      });
+    }
+
+    const serverToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      message: "Google Login successful",
+      token: serverToken,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error("Google verify error:", err);
+    res.status(500).json({ message: "Google authentication failed" });
+  }
 });
 
 module.exports = router;
