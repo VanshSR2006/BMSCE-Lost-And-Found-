@@ -1,15 +1,13 @@
 import axios from "axios";
 
-// Dynamically use the same host the page was served from,
-// so phone, tablet and laptop all reach the backend automatically.
+// VITE_API_URL must be set in Vercel dashboard environment variables.
+// For local dev it reads from .env.development automatically.
 const getBaseUrl = () => {
-  const host = window.location.hostname;
-  // localhost means we're on the dev machine
-  if (host === "localhost" || host === "127.0.0.1") {
-    return "http://localhost:5001";
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
-  // Any other host (e.g. 192.168.x.x from a phone) — point to same IP, port 5001
-  return `http://${host}:5001`;
+  // Local dev fallback only
+  return "http://localhost:5001";
 };
 
 export const api = axios.create({
