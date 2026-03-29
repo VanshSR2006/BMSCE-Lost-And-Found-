@@ -92,18 +92,24 @@ router.get("/me", authMiddleware, async (req, res) => {
 
 // ---------------- GOOGLE SIGN IN ----------------
 const { OAuth2Client } = require("google-auth-library");
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || "950515933140-hae51v4n4qr94n198g7n7huh02afsqmf.apps.googleusercontent.com");
 
 router.post("/google", async (req, res) => {
   try {
     const { token } = req.body;
-    
-    // In a real environment with a valid Google Client ID, we would verify:
-    // const ticket = await client.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
-    // const payload = ticket.getPayload();
-    // For now, if the token payload is passed decoded from the frontend or we decode manually:
-    const payload = jwt.decode(token); 
-    
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+
+    if (!googleClientId) {
+      return res.status(500).json({ message: "Google OAuth not configured on server" });
+    }
+
+    // Properly verify the Google ID token
+    const oauthClient = new OAuth2Client(googleClientId);
+    const ticket = await oauthClient.verifyIdToken({
+      idToken: token,
+      audience: googleClientId,
+    });
+    const payload = ticket.getPayload();
+
     if (!payload || !payload.email) {
       return res.status(400).json({ message: "Invalid Google token" });
     }
@@ -111,17 +117,16 @@ router.post("/google", async (req, res) => {
     const { email, name, sub: googleId } = payload;
 
     if (!email.endsWith("@bmsce.ac.in")) {
-       return res.status(400).json({ message: "Unauthorized: Use your @bmsce.ac.in email ONLY" });
+      return res.status(400).json({ message: "Unauthorized: Use your @bmsce.ac.in email ONLY" });
     }
 
     let user = await User.findOne({ email });
 
     if (!user) {
-      // Create user if they don't exist
       user = await User.create({
         name,
         email,
-        password: await bcrypt.hash(googleId + process.env.JWT_SECRET, 10), // Random password for oauth users
+        password: await bcrypt.hash(googleId + process.env.JWT_SECRET, 10),
         role: "user",
       });
     }
