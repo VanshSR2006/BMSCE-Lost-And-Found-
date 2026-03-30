@@ -3,6 +3,7 @@ const router = express.Router();
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const Notification = require("../models/Notification");
+const Item = require("../models/Item");
 const jwt = require("jsonwebtoken");
 
 /* =====================
@@ -212,6 +213,34 @@ router.put("/:id/close", authMiddleware, async (req, res) => {
         }
       } catch (err) {
         console.error("❌ Critical Sector Guard Logic Error:", err.message);
+      }
+    }
+
+    // 🏆 Handle successful handover (Item Return/Receipt)
+    if (reason === "received") {
+      try {
+        console.log(`[Sector Handover] Closing link: ${conversationId}. Finalizing return protocol...`);
+        
+        // Find the notification that spawned this chat or is linked to it
+        // This gives us access to BOTH the lost and found item records.
+        const sourceMatch = await Notification.findOne({ conversationId });
+        
+        if (sourceMatch) {
+          const itemsToDelete = [];
+          if (sourceMatch.lostItem) itemsToDelete.push(sourceMatch.lostItem);
+          if (sourceMatch.foundItem) itemsToDelete.push(sourceMatch.foundItem);
+
+          if (itemsToDelete.length > 0) {
+            const deleteResult = await Item.deleteMany({ _id: { $in: itemsToDelete } });
+            console.log(`[Sector Cleanup] Deleted ${deleteResult.deletedCount} items linked to chat: ${conversationId}`);
+          }
+        } else if (conv.associatedItem) {
+          // Fallback: If no notification found, try deleting the single associatedItem from the conversation itself
+          await Item.findByIdAndDelete(conv.associatedItem);
+          console.log(`[Sector Cleanup] Deleted single associated item: ${conv.associatedItem}`);
+        }
+      } catch (err) {
+        console.error("❌ Handover cleanup error:", err.message);
       }
     }
 
