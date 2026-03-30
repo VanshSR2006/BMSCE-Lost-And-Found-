@@ -12,6 +12,7 @@ import PageTransition from "@/components/PageTransition";
 import { ItemsProvider } from "@/contexts/ItemsContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { ChatProvider } from "@/contexts/ChatContext";
 import StartupSplash from "@/components/StartupSplash";
 import Layout from "@/components/Layout";
 import { useEffect, useState } from "react";
@@ -27,6 +28,8 @@ import ItemDetail from "./pages/ItemDetail";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
+import Chats from "./pages/Chats";
+import ChatRoom from "./pages/ChatRoom";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +55,8 @@ const AnimatedRoutes = () => {
         <Route path="/items/:id" element={<PageTransition><ItemDetail /></PageTransition>} />
         <Route path="/notifications" element={<PageTransition><Notifications /></PageTransition>} />
         <Route path="/admin" element={<PageTransition><Admin /></PageTransition>} />
+        <Route path="/chats" element={<PageTransition><Chats /></PageTransition>} />
+        <Route path="/chat/:id" element={<PageTransition><ChatRoom /></PageTransition>} />
 
         {/* ✅ 404 */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
@@ -78,33 +83,35 @@ const App = () => {
       <ThemeProvider>
         <AuthProvider>
           <NotificationProvider>
-            <ItemsProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
+            <ChatProvider>
+              <ItemsProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
 
-                <AnimatePresence>
-                  {showSplash && <StartupSplash />}
-                </AnimatePresence>
+                  <AnimatePresence>
+                    {showSplash && <StartupSplash />}
+                  </AnimatePresence>
 
-                <BrowserRouter>
-                  {/* GLOBAL 3D GLASSMORPHISM MULTI-VIEW BACKGROUND */}
-                  <div className="fixed inset-0 min-h-screen bg-[#16052a] -z-50 overflow-hidden pointer-events-none">
-                    <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] bg-purple-600/50 rounded-full blur-[80px] mix-blend-screen opacity-50"></div>
-                    <div className="absolute bottom-[20%] left-[-150px] w-[400px] h-[400px] bg-teal-600/30 rounded-full blur-[80px] mix-blend-screen opacity-50"></div>
-                  </div>
+                  <BrowserRouter>
+                    {/* GLOBAL 3D GLASSMORPHISM MULTI-VIEW BACKGROUND */}
+                    <div className="fixed inset-0 min-h-screen bg-[#16052a] -z-50 overflow-hidden pointer-events-none">
+                      <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] bg-purple-600/50 rounded-full blur-[80px] mix-blend-screen opacity-50"></div>
+                      <div className="absolute bottom-[20%] left-[-150px] w-[400px] h-[400px] bg-teal-600/30 rounded-full blur-[80px] mix-blend-screen opacity-50"></div>
+                    </div>
 
-                  {/* ✅ PARTICLES — RENDER ONCE GLOBALLY */}
-                  <ParticlesBackground />
+                    {/* ✅ PARTICLES — RENDER ONCE GLOBALLY */}
+                    <ParticlesBackground />
 
-                  <div className="relative z-0 min-h-screen flex flex-col">
-                    <Layout>
-                      <AnimatedRoutes />
-                    </Layout>
-                  </div>
-                </BrowserRouter>
-              </TooltipProvider>
-            </ItemsProvider>
+                    <div className="relative z-0 min-h-screen flex flex-col">
+                      <Layout>
+                        <AnimatedRoutes />
+                      </Layout>
+                    </div>
+                  </BrowserRouter>
+                </TooltipProvider>
+              </ItemsProvider>
+            </ChatProvider>
           </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>

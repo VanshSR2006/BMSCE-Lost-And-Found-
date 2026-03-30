@@ -12,7 +12,9 @@ import {
   PlusCircle,
   Shield,
   Bell,
+  MessageSquare,
 } from "lucide-react";
+import { useChat } from "@/contexts/ChatContext";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +33,7 @@ const Navbar = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const { theme, setTheme } = useTheme();
   const { notifications, clearNotification } = useNotifications();
+  const { unreadMessagesCount } = useChat();
 
   const hasNotifications = notifications.length > 0;
 
@@ -78,6 +81,19 @@ const Navbar = () => {
             >
               Report
             </Link>
+            {isAuthenticated && (
+              <Link 
+                to="/chats" 
+                className={`relative font-medium font-['Plus_Jakarta_Sans'] px-3 py-1 rounded-full transition-all ${isActive('/chats') ? 'text-[#4af8e3] bg-white/10 shadow-[0_0_10px_rgba(74,248,227,0.2)]' : 'text-purple-200/70 hover:text-white hover:bg-white/10'}`}
+              >
+                Chats
+                {unreadMessagesCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff2e97] text-[10px] font-bold text-white shadow-[0_0_10px_rgba(255,46,151,0.6)]">
+                    {unreadMessagesCount}
+                  </span>
+                )}
+              </Link>
+            )}
             <Link 
               to="/about" 
               className={`font-medium font-['Plus_Jakarta_Sans'] px-3 py-1 rounded-full transition-all ${isActive('/about') ? 'text-[#4af8e3] bg-white/10 shadow-[0_0_10px_rgba(74,248,227,0.2)]' : 'text-purple-200/70 hover:text-white hover:bg-white/10'}`}
@@ -122,72 +138,43 @@ const Navbar = () => {
                   )}
 
                   {notifications.map((n) => {
-                    // ADMIN: handover request card
-                    if (n.type === "handover_request") {
-                      return (
-                        <div key={n._id} className="space-y-3 rounded-xl border border-[#ff6e84]/30 p-3 bg-[#ff6e84]/5 backdrop-blur-md mb-2">
-                          <p className="text-sm font-bold text-[#ff6e84] flex items-center gap-2">
-                            <span className="material-symbols-outlined text-sm" style={{fontVariationSettings:"'FILL' 1"}}>notification_important</span>
-                            Secure Handover Request
-                          </p>
-                          <p className="text-xs text-white leading-relaxed">
-                            <b>{n.foundItem?.title || "An item"}</b>
-                            {n.foundItem?.category && (
-                              <span className="text-purple-300"> • {n.foundItem.category}</span>
-                            )}
-                          </p>
-                          {n.foundItem?.location && (
-                            <p className="text-[11px] text-purple-300/70 flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs">location_on</span>
-                              {n.foundItem.location}
-                            </p>
-                          )}
-                          <p className="text-[11px] text-purple-200/60 italic leading-relaxed border-t border-white/5 pt-2">{n.message}</p>
-                          <div className="flex gap-2 mt-2">
-                            <Button
-                              size="sm"
-                              className="w-full bg-[#ff6e84] hover:bg-[#ff2e97] text-white py-1 h-8 rounded-lg font-bold"
-                              onClick={() => {
-                                clearNotification(n._id);
-                                navigate("/admin");
-                              }}
-                            >
-                              Open Command Center
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="w-full bg-transparent border border-white/20 text-white hover:bg-white/10 h-8 rounded-lg"
-                              onClick={() => clearNotification(n._id)}
-                            >
-                              Dismiss
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    // REGULAR USER: match notification card
+                    // NEW: Unified notification card for matches and claim requests
                     return (
-                      <div key={n._id} className="space-y-3 rounded-xl border border-white/10 p-3 bg-white/5 backdrop-blur-md mb-2">
-                        <p className="text-sm font-bold text-[#4af8e3] flex items-center gap-2">
-                          <span className="material-symbols-outlined text-sm">search_check</span> Possible match found!
+                      <div key={n._id} className={`space-y-3 rounded-xl border p-3 backdrop-blur-md mb-2 ${
+                        n.type === "claim_request" ? "border-[#ff2e97]/30 bg-[#ff2e97]/5" : "border-white/10 bg-white/5"
+                      }`}>
+                        <p className={`text-sm font-bold flex items-center gap-2 ${
+                          n.type === "claim_request" ? "text-[#ff2e97]" : "text-[#4af8e3]"
+                        }`}>
+                          <span className="material-symbols-outlined text-sm">
+                            {n.type === "claim_request" ? "handover" : "search_check"}
+                          </span> 
+                          {n.type === "claim_request" ? "Handover Request" : "Possible match found!"}
                         </p>
                         <p className="text-xs text-white">
-                          <b>{n.foundItem?.title || "Item"}</b>
-                          {n.foundItem?.category && (
-                            <span className="text-purple-300"> • {n.foundItem.category}</span>
+                          <b>{n.foundItem?.title || n.lostItem?.title || "Item"}</b>
+                          {(n.foundItem?.category || n.lostItem?.category) && (
+                            <span className="text-purple-300"> • {n.foundItem?.category || n.lostItem?.category}</span>
                           )}
                         </p>
                         <div className="flex gap-2 mt-2">
                           <Button
                             size="sm"
-                            className="w-full bg-[#6200EE] hover:bg-[#b89fff] text-white py-1 h-8 rounded-lg"
-                            onClick={() => {
-                              clearNotification(n._id);
-                              navigate(`/items/${n.foundItem!._id}`);
+                            className={`w-full py-1 h-8 rounded-lg text-white font-bold ${
+                              n.type === "claim_request" || !n.conversationId 
+                                ? "bg-white/10 hover:bg-white/20" 
+                                : "bg-[#6200EE] hover:bg-[#b89fff]"
+                            }`}
+                            onClick={async () => {
+                              if (n.conversationId) {
+                                clearNotification(n._id);
+                                navigate(`/chat/${n.conversationId}`);
+                              } else {
+                                navigate("/notifications");
+                              }
                             }}
                           >
-                            View Match
+                            {n.conversationId ? "Open Chat" : "View Protocol"}
                           </Button>
                           <Button
                             size="sm"
@@ -274,6 +261,15 @@ const Navbar = () => {
           <span className="material-symbols-outlined text-[20px]" style={{fontVariationSettings: "'FILL' 1"}}>campaign</span>
           <span className="font-['Inter'] text-[8px] uppercase tracking-wider font-semibold mt-0.5">Report</span>
         </Link>
+        {isAuthenticated && (
+          <Link to="/chats" className={`relative flex flex-col items-center justify-center transition-all ${isActive('/chats') ? 'bg-[#4af8e3] text-[#16052a] rounded-full px-3 py-2 scale-110 shadow-[0_0_15px_rgba(74,248,227,0.4)]' : 'text-purple-200/50 hover:text-white active:scale-95 px-2 py-2'}`}>
+            <span className="material-symbols-outlined text-[20px]" style={{fontVariationSettings: "'FILL' 1"}}>forum</span>
+            <span className="font-['Inter'] text-[8px] uppercase tracking-wider font-semibold mt-0.5">Chats</span>
+            {unreadMessagesCount > 0 && (
+              <span className="absolute top-1 right-2 h-2.5 w-2.5 rounded-full bg-[#ff2e97] border-2 border-[#240e3b]" />
+            )}
+          </Link>
+        )}
         <Link to="/about" className={`flex flex-col items-center justify-center transition-all ${isActive('/about') ? 'bg-[#4af8e3] text-[#16052a] rounded-full px-3 py-2 scale-110 shadow-[0_0_15px_rgba(74,248,227,0.4)]' : 'text-purple-200/50 hover:text-white active:scale-95 px-2 py-2'}`}>
           <span className="material-symbols-outlined text-[20px]" style={{fontVariationSettings: "'FILL' 1"}}>info</span>
           <span className="font-['Inter'] text-[8px] uppercase tracking-wider font-semibold mt-0.5">About</span>

@@ -47,6 +47,7 @@ const Post = () => {
     contactPhone: user?.phone || "",
     contactEmail: user?.email || "",
     category: "", // ✅ IMPORTANT
+    secretDetail: "",
   });
 
   const [imagePreview, setImagePreview] = useState("");
@@ -195,6 +196,30 @@ const Post = () => {
                   }
                 />
               </div>
+
+              {/* SECRET DETAIL (Found only) */}
+              {formData.type === "found" && (
+                <div className="bg-white/5 p-6 rounded-2xl border border-white/10 border-dashed animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="material-symbols-outlined text-[#4af8e3] text-sm">lock</span>
+                    <Label className="text-[#4af8e3] uppercase text-xs font-black tracking-[0.2em]">Secret Validation Detail <span className="text-[#ff2e97]">*</span></Label>
+                  </div>
+                  <Textarea
+                    rows={2}
+                    className="bg-black/40 border-white/10 text-white rounded-xl focus-visible:ring-[#4af8e3] resize-none"
+                    placeholder="Describe something hidden (e.g., 'wallpaper is a cat', 'yellow sticker at bottom', 'broken left button')"
+                    value={formData.secretDetail}
+                    onChange={(e) =>
+                      setFormData({ ...formData, secretDetail: e.target.value })
+                    }
+                    required
+                  />
+                  <p className="text-[10px] text-purple-200/40 mt-3 flex items-start gap-2 italic">
+                    <span className="material-symbols-outlined text-[12px] mt-0.5">info</span>
+                    This detail is HIDDEN from the public directory. It is used to verify the real owner during a handover request.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* LOCATION */}

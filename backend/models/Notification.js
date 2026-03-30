@@ -17,15 +17,36 @@ const notificationSchema = new mongoose.Schema({
     ref: "Item",
   },
 
+  type: {
+    type: String,
+    enum: ["match", "claim_request", "system"],
+    default: "match",
+  },
+
   message: {
     type: String,
     default: "",
+  },
+
+  challengeResponse: {
+    type: String,
+    default: "",
+  },
+
+  requesterLostItem: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Item",
   },
 
   status: {
     type: String,
     enum: ["pending", "accepted", "rejected"],
     default: "pending",
+  },
+
+  conversationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Conversation",
   },
 
   createdAt: {

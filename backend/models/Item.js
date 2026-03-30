@@ -56,6 +56,10 @@ const ItemSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    secretDetail: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

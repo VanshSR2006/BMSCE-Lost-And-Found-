@@ -3,6 +3,8 @@ const router = express.Router();
 const Item = require("../models/Item");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
+const Conversation = require("../models/Conversation");
+const Message = require("../models/Message");
 const jwt = require("jsonwebtoken");
 
 /* ============================
@@ -56,42 +58,91 @@ router.post("/create", authMiddleware, async (req, res) => {
       image: image || null,
       thumbnail: thumbnail || null,
       category,
+      secretDetail: req.body.secretDetail || "",
       createdBy: req.user.id,
     });
 
     console.log("✅ ITEM CREATED:", item.type, item.category);
 
     /* ============================
-       AUTO LOST ↔ FOUND MATCHING
+       BIDIRECTIONAL AUTO MATCHING
     ============================ */
-    if (type === "found") {
-      const lostItems = await Item.find({
-        type: "lost",
-        category,
-        createdBy: { $ne: req.user.id },
+    const matchType = type === "found" ? "lost" : "found";
+    const potentialMatches = await Item.find({
+      type: matchType,
+      category,
+      createdBy: { $ne: req.user.id },
+    });
+
+    const hasKeywordMatch = (str1, str2) => {
+      const words1 = str1.toLowerCase().split(/\W+/).filter(w => w.length > 2);
+      const words2 = str2.toLowerCase().split(/\W+/).filter(w => w.length > 2);
+      return words1.some(word => words2.includes(word));
+    };
+
+    console.log(`🔍 Matching ${matchType} items:`, potentialMatches.length);
+
+    for (const match of potentialMatches) {
+      const lostItem = type === "lost" ? item : match;
+      const foundItem = type === "found" ? item : match;
+      const userToNotify = match.createdBy;
+
+      // 1. Check for Duplicate Notifications for the match
+      const exists = await Notification.findOne({
+        user: userToNotify,
+        lostItem: lostItem._id,
+        foundItem: foundItem._id,
       });
 
-      console.log("🔍 Matching LOST items:", lostItems.length);
+      if (exists) continue;
 
-      for (const lost of lostItems) {
-        const exists = await Notification.findOne({
-          user: lost.createdBy,
-          lostItem: lost._id,
-          foundItem: item._id,
-          status: "pending",
-        });
+      // 2. Similarity & Safety Check
+      const isHighConfidence = hasKeywordMatch(item.title, match.title);
+      const isSafeMatch = new Date(lostItem.createdAt) < new Date(foundItem.createdAt);
+      
+      let conversationId = null;
 
-        if (exists) continue;
+      // 3. Auto-Create Conversation ONLY for High-Confidence Safe Matches
+      if (isSafeMatch && isHighConfidence) {
+         let conv = await Conversation.findOne({
+           participants: { $all: [req.user.id, userToNotify] },
+           associatedItem: lostItem._id
+         });
 
-        await Notification.create({
-          user: lost.createdBy,
-          lostItem: lost._id,
-          foundItem: item._id,
-          message: `Possible match found for your lost ${lost.category}`,
-        });
-
-        console.log("🔔 Notification sent to user:", lost.createdBy.toString());
+         if (!conv) {
+           conv = await Conversation.create({
+             participants: [req.user.id, userToNotify],
+             associatedItem: lostItem._id,
+             lastMessage: {
+               text: `Neural Sync: Match found for ${lostItem.title}. Communication port open.`,
+               sender: req.user.id
+             }
+           });
+           
+           await Message.create({
+             conversationId: conv._id,
+             sender: req.user.id,
+             text: `Welcome. Both reports verified. Please coordinate secure handover.`,
+             type: "system"
+           });
+         }
+         conversationId = conv._id;
       }
+
+      // 4. Create Notification for the user
+      await Notification.create({
+        user: userToNotify,
+        lostItem: lostItem._id,
+        foundItem: foundItem._id,
+        status: "pending",
+        type: "match",
+        message: conversationId 
+          ? `Neural Sync: Secure Match Located for ${lostItem.title}!` 
+          : `Potential Sector Match for ${lostItem.title}. Verification required.`,
+        conversationId: conversationId 
+      });
+
+      console.log("🔔 Notification sent to user:", userToNotify.toString(), "Safe/Confident:", !!conversationId);
     }
 
     res.status(201).json({ message: "Item posted successfully", item });
@@ -102,7 +153,7 @@ router.post("/create", authMiddleware, async (req, res) => {
 });
 
 /* ============================
-   OTHER ROUTES (UNCHANGED)
+   OTHER ROUTES (SANITIZED)
 ============================ */
 router.get("/mine", authMiddleware, async (req, res) => {
   const items = await Item.find({ createdBy: req.user.id }).sort({ createdAt: -1 });
@@ -110,8 +161,45 @@ router.get("/mine", authMiddleware, async (req, res) => {
 });
 
 router.get("/", async (req, res) => {
-  const items = await Item.find().sort({ createdAt: -1 });
+  // Exclude secretDetail from public listing
+  const items = await Item.find().select("-secretDetail").sort({ createdAt: -1 });
   res.json(items);
+});
+
+/* ============================
+   REQUEST SECURE HANDOVER
+============================ */
+router.post("/:id/request-handover", authMiddleware, async (req, res) => {
+  try {
+    const { challengeResponse, lostItemId } = req.body;
+    const foundItem = await Item.findById(req.params.id);
+    const lostItem = await Item.findById(lostItemId);
+
+    if (!foundItem || foundItem.type !== "found") {
+      return res.status(404).json({ message: "Found item not found" });
+    }
+
+    // Security: Requester must own the lost item
+    if (!lostItem || lostItem.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: "You must link an active lost report of your own." });
+    }
+
+    // Create Notification for the Founder
+    await Notification.create({
+      user: foundItem.createdBy,
+      lostItem: lostItem._id,
+      foundItem: foundItem._id,
+      type: "claim_request",
+      message: `Direct claim request from ${req.user.name || "Anonymous User"}`,
+      challengeResponse,
+      requesterLostItem: lostItem._id,
+      status: "pending"
+    });
+
+    res.json({ message: "Claim request submitted securely." });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to submit request" });
+  }
 });
 
 /* ============================
@@ -122,31 +210,13 @@ router.put("/:id/claim", authMiddleware, async (req, res) => {
     const item = await Item.findById(req.params.id);
     if (!item) return res.status(404).json({ message: "Item not found" });
 
-    const requestingUser = await User.findById(req.user.id);
-
-    if (item.type === "found") {
-      const admins = await User.find({ role: "admin" });
-
-      if (admins.length > 0) {
-        const notifications = admins.map(admin => ({
-          user: admin._id,
-          foundItem: item._id,
-          message: `User ${requestingUser.email} is requesting a secure handover for Found Item: ${item.title}`,
-          status: "pending"
-        }));
-        await Notification.insertMany(notifications);
-      }
-
-      return res.json({ message: "Secure handover request sent to Campus Security Admins." });
+    // Only owner can close/claim their own found item now
+    if (item.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: "You can only close your own reports. Handover is handled via secure chat." });
     }
 
-    if (item.type === "lost") {
-      if (item.createdBy.toString() !== req.user.id) {
-        return res.status(403).json({ message: "Not authorized to claim this lost item" });
-      }
-      await item.deleteOne();
-      return res.json({ message: "Item successfully claimed and removed." });
-    }
+    await item.deleteOne();
+    return res.json({ message: "Object signature terminated and entry secured." });
 
   } catch (err) {
     console.error("❌ CLAIM ERROR:", err);
@@ -154,10 +224,20 @@ router.put("/:id/claim", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", authMiddleware, async (req, res) => {
   const item = await Item.findById(req.params.id);
   if (!item) return res.status(404).json({ message: "Item not found" });
-  res.json(item);
+  
+  // Only show secretDetail to owner or admin
+  const isOwner = req.user && req.user.id === item.createdBy.toString();
+  const isAdmin = req.user && req.user.role === "admin";
+  
+  const itemData = item.toObject();
+  if (!isOwner && !isAdmin) {
+    delete itemData.secretDetail;
+  }
+  
+  res.json(itemData);
 });
 
 router.delete("/:id", authMiddleware, async (req, res) => {

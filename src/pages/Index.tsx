@@ -195,7 +195,7 @@ const Index = () => {
                     "Integrity in every claim, fairness in every resolution."
                   </p>
                   <p className="text-purple-200/60 text-sm leading-relaxed">
-                    The campus's trust is in your hands. Every handover you approve restores someone's trust. Every action taken within the Admin Console reflects the security standard of BMSCE.
+                    The campus's trust is in your hands. Your oversight ensures the integrity of the global inventory and the verification of all personnel. Your actions within the Command Center maintain the safety standards of BMSCE.
                   </p>
                 </div>
 

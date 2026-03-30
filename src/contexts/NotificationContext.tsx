@@ -13,9 +13,12 @@ export interface Notification {
   _id: string;
   message: string;
   createdAt: string;
-  type: "match" | "handover_request";
+  type: "match" | "claim_request" | "system" | "handover_request";
   lostItem?: ItemBrief;
   foundItem?: ItemBrief;
+  challengeResponse?: string;
+  requesterLostItem?: ItemBrief;
+  conversationId?: string;
 }
 
 interface NotificationContextType {

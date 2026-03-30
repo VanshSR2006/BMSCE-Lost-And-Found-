@@ -3,6 +3,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import {
@@ -53,6 +62,10 @@ const ItemDetail = () => {
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showClaimDialog, setShowClaimDialog] = useState(false);
+  const [userLostItems, setUserLostItems] = useState<any[]>([]);
+  const [selectedLostItem, setSelectedLostItem] = useState<string>("");
+  const [challengeAnswer, setChallengeAnswer] = useState("");
+  const [isSubmittingClaim, setIsSubmittingClaim] = useState(false);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -65,8 +78,25 @@ const ItemDetail = () => {
         setLoading(false);
       }
     };
+    
+    const fetchUserLostItems = async () => {
+      if (!isAuthenticated) return;
+      try {
+        const res = await api.get('/items/mine');
+        setUserLostItems(res.data.filter((i: any) => i.type === 'lost'));
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
     fetchItem();
-  }, [id]);
+    fetchUserLostItems();
+  }, [id, isAuthenticated]);
+
+  const hasCategoryMatch = userLostItems.some((i: any) => i.category === item?.category);
+  const isLateReport = item && userLostItems.some(
+    i => i.category === item.category && new Date(i.createdAt) > new Date(item.createdAt)
+  );
 
   const handleShare = () => {
     if (navigator.share) {
@@ -86,20 +116,66 @@ const ItemDetail = () => {
   };
 
   const handleClaim = async () => {
+    // If it's a FOUND item and we don't have a system match yet, trigger the manual request flow
+    const matchNotification = notifications.find(n => 
+      (n.foundItem?._id === id || n.lostItem?._id === id) && n.type === "match"
+    );
+
+    if (item.type === "found" && !matchNotification) {
+      handleRequestHandover();
+      return;
+    }
+
+    // If we have a match notification with a direct chat link, go there
+    if (matchNotification?.conversationId) {
+      navigate(`/chat/${matchNotification.conversationId}`);
+      return;
+    }
+
     try {
-      await api.put(`/items/${item._id}/claim`);
+      if (item.type === "found") {
+        // Correct ownership check (comparing strings)
+        const itemOwnerId = item.createdBy?._id || item.createdBy;
+        if (itemOwnerId.toString() !== user?._id) {
+           handleRequestHandover();
+           return;
+        }
+        await api.delete(`/items/${item._id}`);
+      } else {
+        // Owner closing their own lost post
+        await api.delete(`/items/${item._id}`);
+      }
+      
       toast.success(
         item.type === "lost" 
-          ? "Item marked as claimed!" 
-          : "Handover request sent to Admins!"
+          ? "Inventory marked as reclaimed!" 
+          : "Found report terminated and secured."
       );
       setShowClaimDialog(false);
-      
-      if(item.type === "lost") {
-        navigate("/");
-      }
+      navigate("/");
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to process request");
+    }
+  };
+
+  const handleRequestHandover = async () => {
+    if (!selectedLostItem || !challengeAnswer) {
+      toast.error("Please fill in all verification fields.");
+      return;
+    }
+
+    setIsSubmittingClaim(true);
+    try {
+      await api.post(`/items/${item._id}/request-handover`, {
+        challengeResponse: challengeAnswer,
+        lostItemId: selectedLostItem
+      });
+      toast.success("Identity verification sent to the founder!");
+      setShowClaimDialog(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to submit request.");
+    } finally {
+      setIsSubmittingClaim(false);
     }
   };
 
@@ -166,13 +242,19 @@ const ItemDetail = () => {
                 )}
                 
                 {/* STATUS OVERLAY */}
-                <div className="absolute top-6 left-6">
+                <div className="absolute top-6 left-6 flex flex-col gap-2">
                   <div className={`px-4 py-2 rounded-full backdrop-blur-md border font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl ${item.type === "lost" ? "bg-[#ff2e97]/20 border-[#ff2e97]/40 text-[#ff2e97]" : "bg-[#4af8e3]/20 border-[#4af8e3]/40 text-[#4af8e3]"}`}>
                     <span className="flex items-center gap-2">
                        <span className={`w-2 h-2 rounded-full animate-pulse ${item.type === 'lost' ? 'bg-[#ff2e97]' : 'bg-[#4af8e3]'}`}></span>
                        {item.type} Object
                     </span>
                   </div>
+
+                  {isLateReport && item.type === "found" && (
+                    <div className="bg-amber-500/20 border border-amber-500/40 text-amber-500 px-4 py-2 rounded-full backdrop-blur-md font-black text-[9px] uppercase tracking-[0.2em] animate-pulse">
+                      ⚡ Potential Sync Delay
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -244,22 +326,31 @@ const ItemDetail = () => {
                 </div>
 
                 {/* DYNAMIC CASE-BY-CASE ACTIONS */}
-                {isAuthenticated && user?._id === item?.createdBy && (
+                {isAuthenticated && user?._id === (item?.createdBy?._id || item?.createdBy) && (
                   <Button 
                     className="w-full h-16 bg-gradient-to-r from-rose-500 to-[#ff2e97] text-white rounded-2xl font-black text-lg shadow-xl shadow-rose-900/20 active:scale-95 transition-all"
                     onClick={() => setShowClaimDialog(true)}
                   >
-                    Terminate Protocol (Claimed)
+                    Terminate Protocol (Object Secured)
                   </Button>
                 )}
 
-                {isAuthenticated && item.type === "found" && user?.role !== "admin" && user?._id !== item?.createdBy && hasMatchForThisItem && (
+                {isAuthenticated && item.type === "found" && user?._id !== (item?.createdBy?._id || item?.createdBy) && (
                   <Button 
                     className="w-full h-16 bg-gradient-to-r from-[#6200EE] to-[#4af8e3] text-white rounded-2xl font-black text-lg shadow-xl shadow-purple-900/20 active:scale-95 transition-all flex items-center justify-center gap-3"
                     onClick={() => setShowClaimDialog(true)}
                   >
-                    <ShieldCheck className="h-6 w-6" />
-                    Initiate Secure Handover
+                    {hasMatchForThisItem && matchNotification?.conversationId ? (
+                      <>
+                        <ShieldCheck className="h-6 w-6" />
+                        Enter Communication Port
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="h-6 w-6" />
+                        Request Secure Connection
+                      </>
+                    )}
                   </Button>
                 )}
                 
@@ -289,24 +380,58 @@ const ItemDetail = () => {
         <AlertDialogContent className="bg-[#16052a] text-white border-white/10 rounded-[2rem] p-10 max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-3xl font-extrabold font-['Plus_Jakarta_Sans'] tracking-tight">
-              {item.type === "lost" ? "Terminate Protocol?" : "Secure Handover?"}
+              {item.type === "lost" ? "Reclaim Object?" : "Request Secure Link?"}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-lg text-purple-200/50 py-4 leading-relaxed">
+            <AlertDialogDescription className="text-lg text-purple-100/40 py-4 leading-relaxed">
               {item.type === "lost"
-                ? "This will permanently remove the item from the Global Directory. Confirm if you have successfully reclaimed it."
-                : "Initiating this protocol will notify Campus Security. They will mediate a physical verification and secure exchange of the object."}
+                ? "Permanently remove this signature from the neural network. Use only if item is back in your possession."
+                : (hasMatchForThisItem 
+                    ? "Our system detected a high-probability match. Click below to initiate the handover protocol." 
+                    : "To prevent fraud, you must provide a unique detail only you would know (e.g., specific damage or hidden features).")}
             </AlertDialogDescription>
+
+            {item.type === "found" && !hasMatchForThisItem && (
+              <div className="space-y-6 pt-4">
+                <div className="space-y-3">
+                  <Label className="text-[#4af8e3] text-xs font-black uppercase tracking-widest">Select Your Lost Post</Label>
+                  <Select value={selectedLostItem} onValueChange={setSelectedLostItem}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white rounded-xl h-12">
+                      <SelectValue placeholder="Which of your items is this?" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#240e3b] border-white/10 text-white">
+                      {userLostItems.map((i: any) => (
+                        <SelectItem key={i._id} value={i._id}>{i.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-[#4af8e3] text-xs font-black uppercase tracking-widest">Verification Challenge</Label>
+                  <Textarea
+                    className="bg-white/5 border-white/10 text-purple-50 rounded-xl min-h-[100px]"
+                    placeholder="Describe a detail not mentioned in the public listing (e.g., 'Wallpaper is my dog', 'Scratch on the left side')."
+                    value={challengeAnswer}
+                    onChange={(e) => setChallengeAnswer(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
           </AlertDialogHeader>
 
-          <AlertDialogFooter className="gap-4">
+          <AlertDialogFooter className="gap-4 pt-6">
             <AlertDialogCancel className="bg-transparent border-white/10 hover:bg-white/10 text-white rounded-xl h-12 px-8 flex-1">
               Abort
             </AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleClaim}
-              className={`rounded-xl h-12 px-8 flex-1 font-bold ${item.type === "lost" ? "bg-[#ff2e97] hover:bg-[#ff2e97]/90 text-white" : "bg-[#4af8e3] hover:bg-[#4af8e3]/90 text-[#16052a]"}`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleClaim();
+              }}
+              disabled={isSubmittingClaim || (item.type === "found" && !hasMatchForThisItem && (!selectedLostItem || !challengeAnswer))}
+              className={`rounded-xl h-12 px-8 flex-1 font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 ${item.type === "lost" ? "bg-[#ff2e97] text-white" : "bg-[#4af8e3] text-[#16052a]"}`}
             >
-              Verify & Complete
+              {isSubmittingClaim ? "Encrypting..." : "Transmit Request"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
