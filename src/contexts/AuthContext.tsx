@@ -15,6 +15,9 @@ export interface User {
   name: string;
   email: string;
   role: "user" | "admin" | "student";
+  phone: string;
+  usn: string;
+  branch: string;
 }
 
 interface AuthContextValue {
@@ -24,6 +27,7 @@ interface AuthContextValue {
   signup: (name: string, email: string, password: string) => Promise<boolean>;
   loginWithGoogle: (credential: string) => Promise<boolean>;
   logout: () => void;
+  updateUser: (userData: User) => void;
 }
 
 /* =====================
@@ -39,12 +43,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // ✅ restore user on refresh
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    const token = localStorage.getItem("token");
+    const fetchUser = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
 
-    if (storedUser && token) {
-      setUser(JSON.parse(storedUser));
-    }
+      try {
+        const res = await api.get("/auth/me");
+        setUser(res.data.user);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+      } catch (err) {
+        console.error("Failed to restore session", err);
+        // logout(); // don't force logout if server is just down
+      }
+    };
+    fetchUser();
   }, []);
 
   /* =====================
@@ -128,6 +140,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     window.dispatchEvent(new Event("storage"));
   };
 
+  /* =====================
+      UPDATE USER
+  ===================== */
+  const updateUser = (userData: User) => {
+    localStorage.setItem("user", JSON.stringify(userData));
+    setUser(userData);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -137,6 +157,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signup,
         loginWithGoogle,
         logout,
+        updateUser,
       }}
     >
       {children}

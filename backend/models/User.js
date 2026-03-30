@@ -21,7 +21,22 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ["user", "admin", "student"],   // <<< FIXED (added "user")
     default: "user"
+  },
+
+  phone: {
+    type: String,
+    default: ""
+  },
+
+  usn: {
+    type: String,
+    default: ""
+  },
+
+  branch: {
+    type: String,
+    default: ""
   }
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

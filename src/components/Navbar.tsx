@@ -44,7 +44,7 @@ const Navbar = () => {
   return (
     <>
       <nav className="fixed top-0 w-full z-50 bg-[#240e3b]/80 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_32px_0_rgba(241,223,255,0.02)] transition-all duration-300">
-        <div className="container mx-auto flex justify-between items-center py-4 px-4 h-20 max-w-7xl">
+        <div className="mx-auto flex justify-between items-center py-4 px-4 h-20 max-w-full lg:max-w-7xl">
           {/* LOGO */}
           <Link
             to="/"
@@ -256,8 +256,6 @@ const Navbar = () => {
               </DropdownMenu>
             )}
             
-            {/* Mobile Nav Spacer Box aligned right - Not visible visually but reserves space */}
-            <div className="md:hidden w-8"></div>
           </div>
         </div>
       </nav>

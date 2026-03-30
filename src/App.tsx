@@ -12,6 +12,9 @@ import PageTransition from "@/components/PageTransition";
 import { ItemsProvider } from "@/contexts/ItemsContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import StartupSplash from "@/components/StartupSplash";
+import Layout from "@/components/Layout";
+import { useEffect, useState } from "react";
 
 import Index from "./pages/Index";
 import Directory from "./pages/Directory";
@@ -32,12 +35,10 @@ const queryClient = new QueryClient();
 ================================ */
 const AnimatedRoutes = () => {
   const location = useLocation();
-  const isHome = location.pathname === "/";
-
+  
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-
         {/* ✅ HOME — NO TRANSITION */}
         <Route path="/" element={<Index />} />
 
@@ -54,7 +55,6 @@ const AnimatedRoutes = () => {
 
         {/* ✅ 404 */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
-
       </Routes>
     </AnimatePresence>
   );
@@ -64,6 +64,15 @@ const AnimatedRoutes = () => {
    APP ROOT
 ================================ */
 const App = () => {
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2500); // 2.5s for a smooth reveal
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
@@ -71,9 +80,12 @@ const App = () => {
           <NotificationProvider>
             <ItemsProvider>
               <TooltipProvider>
-
                 <Toaster />
                 <Sonner />
+
+                <AnimatePresence>
+                  {showSplash && <StartupSplash />}
+                </AnimatePresence>
 
                 <BrowserRouter>
                   {/* GLOBAL 3D GLASSMORPHISM MULTI-VIEW BACKGROUND */}
@@ -86,9 +98,10 @@ const App = () => {
                   <ParticlesBackground />
 
                   <div className="relative z-0 min-h-screen flex flex-col">
-                    <AnimatedRoutes />
+                    <Layout>
+                      <AnimatedRoutes />
+                    </Layout>
                   </div>
-
                 </BrowserRouter>
               </TooltipProvider>
             </ItemsProvider>

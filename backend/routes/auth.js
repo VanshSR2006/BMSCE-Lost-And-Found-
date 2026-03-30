@@ -38,10 +38,12 @@ router.post("/signup", async (req, res) => {
       message: "Signup successful",
       token,
       user: {
-        _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        phone: user.phone || "",
+        usn: user.usn || "",
+        branch: user.branch || "",
       },
     });
   } catch (err) {
@@ -76,6 +78,9 @@ router.post("/login", async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        phone: user.phone || "",
+        usn: user.usn || "",
+        branch: user.branch || "",
       },
     });
   } catch (err) {
@@ -87,7 +92,18 @@ router.post("/login", async (req, res) => {
 // ---------------- ME ----------------
 router.get("/me", authMiddleware, async (req, res) => {
   const user = await User.findById(req.user.id).select("-password");
-  res.json({ user });
+  if (!user) return res.status(404).json({ message: "User not found" });
+  res.json({
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone || "",
+      usn: user.usn || "",
+      branch: user.branch || "",
+    }
+  });
 });
 
 // ---------------- GOOGLE SIGN IN ----------------
@@ -145,11 +161,46 @@ router.post("/google", async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        phone: user.phone || "",
+        usn: user.usn || "",
+        branch: user.branch || "",
       },
     });
   } catch (err) {
     console.error("Google verify error:", err);
     res.status(500).json({ message: "Google authentication failed" });
+  }
+});
+
+// ---------------- UPDATE PROFILE ----------------
+router.put("/profile", authMiddleware, async (req, res) => {
+  try {
+    const { phone, usn, branch } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (phone) user.phone = phone;
+    if (usn) user.usn = usn;
+    if (branch) user.branch = branch;
+
+    await user.save();
+
+    res.json({
+      message: "Profile updated successfully",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        usn: user.usn,
+        branch: user.branch,
+      },
+    });
+  } catch (err) {
+    console.error("Profile update error:", err);
+    res.status(500).json({ message: "Failed to update profile" });
   }
 });
 

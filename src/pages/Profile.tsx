@@ -8,32 +8,28 @@ import { api } from "@/utils/api";
 import { toast } from "sonner";
 import { User, Phone, BookOpen, Mail, Edit2, Check, X, LogOut } from "lucide-react";
 
-const PROFILE_STORAGE_KEY = "bmsce_profile_extra";
-
 const Profile = () => {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, updateUser, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const [items, setItems] = useState<any[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
 
-  // Editable extra fields stored locally
+  // Editable extra fields stored in backend
   const [editMode, setEditMode] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [usn, setUsn] = useState("");
-  const [branch, setBranch] = useState("");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [usn, setUsn] = useState(user?.usn || "");
+  const [branch, setBranch] = useState(user?.branch || "");
   const [saving, setSaving] = useState(false);
 
-  // Load saved extras from localStorage on mount
+  // Sync state if user object changes (e.g. after refresh/login)
   useEffect(() => {
-    const saved = localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setPhone(parsed.phone || "");
-      setUsn(parsed.usn || "");
-      setBranch(parsed.branch || "");
+    if (user) {
+      setPhone(user.phone || "");
+      setUsn(user.usn || "");
+      setBranch(user.branch || "");
     }
-  }, []);
+  }, [user]);
 
   // Fetch the user's own posts
   useEffect(() => {
@@ -51,14 +47,29 @@ const Profile = () => {
     fetch();
   }, [isAuthenticated]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // 10-digit validation
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (cleanPhone.length !== 10) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
+
     setSaving(true);
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ phone, usn, branch }));
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      const res = await api.put("/auth/profile", { 
+        phone: cleanPhone, 
+        usn, 
+        branch 
+      });
+      updateUser(res.data.user);
       setEditMode(false);
-      toast.success("Profile updated!");
-    }, 300);
+      toast.success("Profile updated on Nexus!");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to update profile");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -95,8 +106,6 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen flex flex-col font-['Inter'] bg-[#16052a]">
-      <Navbar />
-
       <main className="flex-1 pt-24 pb-36 px-4 max-w-2xl mx-auto w-full">
 
         {/* ─── PROFILE CARD ─── */}
@@ -198,7 +207,7 @@ const Profile = () => {
 
             {/* Branch */}
             <div className="flex items-center gap-4 p-3.5 bg-white/5 rounded-2xl border border-white/5">
-              <div className="w-8 h-8 rounded-xl bg-[#b89fff]/10 flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-[#b89fff]/15 flex items-center justify-center flex-shrink-0">
                 <span className="material-symbols-outlined text-[#b89fff] text-sm">school</span>
               </div>
               <div className="flex-1 min-w-0">
@@ -270,10 +279,6 @@ const Profile = () => {
           </div>
         )}
       </main>
-
-      <div className="hidden md:block">
-        <Footer />
-      </div>
     </div>
   );
 };

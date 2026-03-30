@@ -44,7 +44,7 @@ const Post = () => {
     location: "",
     date: "",
     contactName: user?.name || "",
-    contactPhone: "",
+    contactPhone: user?.phone || "",
     contactEmail: user?.email || "",
     category: "", // ✅ IMPORTANT
   });
@@ -96,6 +96,13 @@ const Post = () => {
       !formData.category
     ) {
       toast.error("Please fill all required fields");
+      return;
+    }
+
+    // 10-digit validation
+    const cleanPhone = formData.contactPhone.replace(/\D/g, "");
+    if (cleanPhone.length !== 10) {
+      toast.error("Comm Link (Phone) must be exactly 10 digits");
       return;
     }
 
