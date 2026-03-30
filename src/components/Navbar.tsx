@@ -34,6 +34,7 @@ const Navbar = () => {
   const { theme, setTheme } = useTheme();
   const { notifications, clearNotification } = useNotifications();
   const { unreadMessagesCount } = useChat();
+  const isChatRoomPath = location.pathname.includes("/chat/");
 
   const hasNotifications = notifications.length > 0;
 
@@ -248,7 +249,8 @@ const Navbar = () => {
       </nav>
 
       {/* MOBILE BOTTOM NAV — 5 tabs */}
-      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-md rounded-[2rem] px-1 py-3 bg-[#240e3b]/80 backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 flex justify-around items-center z-50">
+      {!isChatRoomPath && (
+        <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-md rounded-[2rem] px-1 py-3 bg-[#240e3b]/80 backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 flex justify-around items-center z-50">
         <Link to="/" className={`flex flex-col items-center justify-center transition-all ${isActive('/') ? 'bg-[#4af8e3] text-[#16052a] rounded-full px-3 py-2 scale-110 shadow-[0_0_15px_rgba(74,248,227,0.4)]' : 'text-purple-200/50 hover:text-white active:scale-95 px-2 py-2'}`}>
           <span className="material-symbols-outlined text-[20px]" style={{fontVariationSettings: "'FILL' 1"}}>home</span>
           <span className="font-['Inter'] text-[8px] uppercase tracking-wider font-bold mt-0.5">Home</span>
@@ -279,6 +281,7 @@ const Navbar = () => {
           <span className="font-['Inter'] text-[8px] uppercase tracking-wider font-semibold mt-0.5">Profile</span>
         </Link>
       </nav>
+      )}
     </>
   );
 };

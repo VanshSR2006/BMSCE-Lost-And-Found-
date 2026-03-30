@@ -126,7 +126,7 @@ const ChatRoom = () => {
     <div className="min-h-screen bg-[#16052a] flex flex-col font-['Inter']">
       
       {/* ─── HEADER ─── */}
-      <header className="fixed top-20 w-full h-20 bg-[#240e3b]/80 backdrop-blur-2xl border-b border-white/5 z-40 px-4 flex items-center justify-between shadow-xl">
+      <header className="fixed top-0 w-full h-20 bg-[#240e3b]/80 backdrop-blur-2xl border-b border-white/5 z-40 px-4 flex items-center justify-between shadow-xl">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate("/chats")} className="p-2 hover:bg-white/5 rounded-full transition-all">
             <ArrowLeft className="text-white" />
@@ -155,7 +155,7 @@ const ChatRoom = () => {
       {/* ─── MESSAGES AREA ─── */}
       <main 
         ref={scrollRef}
-        className="flex-1 pt-44 pb-28 px-4 overflow-y-auto space-y-4 max-w-4xl mx-auto w-full scroll-smooth"
+        className="flex-1 pt-24 pb-32 px-4 overflow-y-auto space-y-4 max-w-4xl mx-auto w-full scroll-smooth"
       >
         <div className="text-center py-10 opacity-30">
           <Shield className="mx-auto mb-2 text-purple-200" size={32} />
@@ -189,7 +189,7 @@ const ChatRoom = () => {
       </main>
 
       {/* ─── INPUT AREA ─── */}
-      <div className="fixed bottom-0 w-full bg-[#16052a]/50 backdrop-blur-3xl border-t border-white/5 p-4 z-40">
+      <div className="fixed bottom-0 w-full bg-[#16052a]/80 backdrop-blur-3xl border-t border-white/10 p-4 z-[100]">
         <div className="max-w-4xl mx-auto flex items-center gap-3">
           <input
             type="text"
