@@ -42,8 +42,8 @@ const AnimatedRoutes = () => {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        {/* ✅ HOME — NO TRANSITION */}
-        <Route path="/" element={<Index />} />
+        {/* ✅ HOME — NOW WRAPPED FOR CONSISTENCY */}
+        <Route path="/" element={<PageTransition><Index /></PageTransition>} />
 
         {/* ✅ ALL OTHER ROUTES — SMOOTH TRANSITION */}
         <Route path="/directory" element={<PageTransition><Directory /></PageTransition>} />
