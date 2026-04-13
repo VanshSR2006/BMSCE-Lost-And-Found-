@@ -100,6 +100,15 @@ const Post = () => {
       return;
     }
 
+    // Date validation
+    const selectedDate = new Date(formData.date);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (selectedDate > today) {
+      toast.error("Date signature invalid: Future dates are not permitted.");
+      return;
+    }
+
     // 10-digit validation
     const cleanPhone = formData.contactPhone.replace(/\D/g, "");
     if (cleanPhone.length !== 10) {

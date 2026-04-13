@@ -56,7 +56,11 @@ const ItemDetail = () => {
   const { notifications } = useNotifications();
 
   const hasMatchForThisItem = notifications.some(
-    (n) => n.type === "match" && n.foundItem?._id === id
+    (n) => n.type === "match" && (n.foundItem?._id === id || n.lostItem?._id === id)
+  );
+
+  const matchNotification = notifications.find(n => 
+    (n.foundItem?._id === id || n.lostItem?._id === id) && n.type === "match"
   );
 
   const [item, setItem] = useState<any>(null);
@@ -117,9 +121,7 @@ const ItemDetail = () => {
 
   const handleClaim = async () => {
     // If it's a FOUND item and we don't have a system match yet, trigger the manual request flow
-    const matchNotification = notifications.find(n => 
-      (n.foundItem?._id === id || n.lostItem?._id === id) && n.type === "match"
-    );
+    // Using matchNotification from component scope
 
     if (item.type === "found" && !matchNotification) {
       handleRequestHandover();
@@ -143,7 +145,7 @@ const ItemDetail = () => {
         await api.delete(`/items/${item._id}`);
       } else {
         // Owner closing their own lost post
-        await api.delete(`/items/${item._id}`);
+        await api.put(`/items/${item._id}/claim`);
       }
       
       toast.success(
@@ -337,7 +339,8 @@ const ItemDetail = () => {
 
                 {isAuthenticated && item.type === "found" && user?._id !== (item?.createdBy?._id || item?.createdBy) && (
                   <Button 
-                    className="w-full h-16 bg-gradient-to-r from-[#6200EE] to-[#4af8e3] text-white rounded-2xl font-black text-lg shadow-xl shadow-purple-900/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                    disabled={item.status === "returned"}
+                    className="w-full h-16 bg-gradient-to-r from-[#6200EE] to-[#4af8e3] text-white rounded-2xl font-black text-lg shadow-xl shadow-purple-900/20 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                     onClick={() => setShowClaimDialog(true)}
                   >
                     {hasMatchForThisItem && matchNotification?.conversationId ? (

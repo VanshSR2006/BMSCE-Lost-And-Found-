@@ -161,8 +161,8 @@ router.get("/mine", authMiddleware, async (req, res) => {
 });
 
 router.get("/", async (req, res) => {
-  // Exclude secretDetail from public listing
-  const items = await Item.find().select("-secretDetail").sort({ createdAt: -1 });
+  // Exclude secretDetail from public listing and only show active items
+  const items = await Item.find({ status: "active" }).select("-secretDetail").sort({ createdAt: -1 });
   res.json(items);
 });
 

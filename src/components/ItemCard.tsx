@@ -10,6 +10,7 @@ interface ItemCardProps {
   type: "lost" | "found";
   imageUrl?: string;
   thumbnail?: string;
+  status?: "active" | "returned";
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -31,6 +32,7 @@ const ItemCard = ({
   type,
   imageUrl,
   thumbnail,
+  status = "active",
 }: ItemCardProps) => {
   const displayImage = thumbnail || imageUrl || null;
   return (
@@ -86,6 +88,15 @@ const ItemCard = ({
               {type === "lost" ? "Lost" : "Found"}
             </span>
           </div>
+
+          {/* RETURNED BADGE overlay */}
+          {status === "returned" && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex items-center justify-center">
+              <div className="px-6 py-3 bg-green-500/20 border border-green-500/50 rounded-2xl transform -rotate-12 shadow-[0_0_30px_rgba(34,197,94,0.3)]">
+                 <span className="text-green-400 font-black uppercase tracking-[0.3em] text-lg">Returned</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* CONTENT */}

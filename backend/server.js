@@ -97,18 +97,28 @@ io.on("connection", (socket) => {
         }
       };
 
-      // Prepare $inc object dynamically for all other participants
+      // Optimization: Only increment unread count for users NOT in the room
+      const socketsInRoom = await io.in(conversationId).fetchSockets();
+      const activeUserIds = socketsInRoom.map(s => s.user.id.toString());
+
       const incObj = {};
       conversation.participants.forEach(pId => {
-        if (pId.toString() !== socket.user.id.toString()) {
-          incObj[`unreadCount.${pId}`] = 1;
+        const pIdStr = pId.toString();
+        if (pIdStr !== socket.user.id.toString() && !activeUserIds.includes(pIdStr)) {
+          incObj[`unreadCount.${pIdStr}`] = 1;
         }
       });
 
-      await Conversation.findByIdAndUpdate(conversationId, {
-        $set: updateObj,
-        $inc: incObj
-      });
+      if (Object.keys(incObj).length > 0) {
+        await Conversation.findByIdAndUpdate(conversationId, {
+          $set: updateObj,
+          $inc: incObj
+        });
+      } else {
+        await Conversation.findByIdAndUpdate(conversationId, {
+          $set: updateObj
+        });
+      }
 
       io.to(conversationId).emit("new_message", message);
     } catch (err) {

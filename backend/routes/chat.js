@@ -231,13 +231,16 @@ router.put("/:id/close", authMiddleware, async (req, res) => {
           if (sourceMatch.foundItem) itemsToDelete.push(sourceMatch.foundItem);
 
           if (itemsToDelete.length > 0) {
-            const deleteResult = await Item.deleteMany({ _id: { $in: itemsToDelete } });
-            console.log(`[Sector Cleanup] Deleted ${deleteResult.deletedCount} items linked to chat: ${conversationId}`);
+            const updateResult = await Item.updateMany(
+              { _id: { $in: itemsToDelete } },
+              { $set: { status: "returned" } }
+            );
+            console.log(`[Sector Cleanup] Marked ${updateResult.modifiedCount} items as 'returned' linked to chat: ${conversationId}`);
           }
         } else if (conv.associatedItem) {
-          // Fallback: If no notification found, try deleting the single associatedItem from the conversation itself
-          await Item.findByIdAndDelete(conv.associatedItem);
-          console.log(`[Sector Cleanup] Deleted single associated item: ${conv.associatedItem}`);
+          // Fallback: Mark the single associatedItem as returned
+          await Item.findByIdAndUpdate(conv.associatedItem, { $set: { status: "returned" } });
+          console.log(`[Sector Cleanup] Marked single associated item as 'returned': ${conv.associatedItem}`);
         }
       } catch (err) {
         console.error("❌ Handover cleanup error:", err.message);

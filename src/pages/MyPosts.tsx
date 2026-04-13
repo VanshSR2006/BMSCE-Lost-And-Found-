@@ -76,6 +76,7 @@ const MyPosts = () => {
                   date={item.date}
                   type={item.type}
                   imageUrl={item.image}
+                  status={item.status}
                 />
 
                 {/* Delete / Claim Button */}

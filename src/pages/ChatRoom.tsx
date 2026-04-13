@@ -31,12 +31,14 @@ const ChatRoom = () => {
     const fetchChatData = async () => {
       try {
         const [convRes, msgRes] = await Promise.all([
-          api.get(`/chat/${id}`), // Needs backend route for single conv
-          api.get(`/chat/${id}/messages`)
+          api.get(`/chat/${id}`), 
+          api.get(`/chat/${id}/messages`),
+          api.put(`/chat/${id}/read`) // Clear unread count on entry
         ]);
         
         setConversation(convRes.data);
         setMessages(msgRes.data);
+        refreshUnreadCount();
         
         // Check if rules already shown
         const rulesShown = localStorage.getItem(`rules_shown_${id}`);
@@ -59,16 +61,11 @@ const ChatRoom = () => {
 
     socket.emit("join_room", id);
 
-    socket.on("new_message", async (msg) => {
+    socket.on("new_message", (msg) => {
       if (msg.conversationId === id) {
         setMessages(prev => [...prev, msg]);
-        // Optimized Sector Sync: Direct unread clearing
-        try {
-          await api.put(`/chat/${id}/read`); 
-          refreshUnreadCount();
-        } catch (e) {
-          console.error("Sync error:", e);
-        }
+        // Note: We no longer call /read here because the server 
+        // handles unread logic by checking who is in the room.
       }
     });
 
@@ -163,7 +160,7 @@ const ChatRoom = () => {
         </div>
 
         {messages.map((msg, idx) => {
-          const isMine = msg.sender === user?._id;
+          const isMine = (msg.sender?._id || msg.sender) === user?._id;
           return (
             <motion.div
               initial={{ opacity: 0, x: isMine ? 20 : -20 }}

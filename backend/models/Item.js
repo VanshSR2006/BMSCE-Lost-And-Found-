@@ -60,6 +60,11 @@ const ItemSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    status: {
+      type: String,
+      enum: ["active", "returned"],
+      default: "active",
+    },
   },
   { timestamps: true }
 );

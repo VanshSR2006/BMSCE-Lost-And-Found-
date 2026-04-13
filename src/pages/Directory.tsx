@@ -18,6 +18,7 @@ const Directory = () => {
   const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterType, setFilterType] = useState<"all" | "lost" | "found">("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "category">("newest");
@@ -37,6 +38,14 @@ const Directory = () => {
     fetchItems();
   }, []);
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // CATEGORY list from backend items (fallback to "Other")
   const categories = useMemo(() => {
     const cats = new Set(items.map((item) => item.category || "Other"));
@@ -47,9 +56,9 @@ const Directory = () => {
   const filteredAndSortedItems = useMemo(() => {
     let filtered = items.filter((item) => {
       const matchesSearch =
-        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.category || "other").toLowerCase().includes(searchQuery.toLowerCase());
+        item.title?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        item.description?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (item.category || "other").toLowerCase().includes(debouncedSearch.toLowerCase());
 
       const matchesType =
         filterType === "all" || item.type === filterType;
@@ -69,7 +78,7 @@ const Directory = () => {
     });
 
     return filtered;
-  }, [items, searchQuery, filterType, filterCategory, sortBy]);
+  }, [items, debouncedSearch, filterType, filterCategory, sortBy]);
 
   return (
     <div className="min-h-screen flex flex-col animate-fade-in font-['Inter']">
