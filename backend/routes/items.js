@@ -48,6 +48,23 @@ router.post("/create", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
+    // ✅ ROBUST DUPLICATE GUARD
+    // Prevent multiple active reports from the same user for the same item title/category
+    const duplicate = await Item.findOne({
+      createdBy: req.user.id,
+      title: { $regex: new RegExp(`^${title.trim()}$`, "i") },
+      type,
+      category,
+      status: "active"
+    });
+
+    if (duplicate) {
+      console.log("🚫 ROBUST DUPLICATE PREVENTED:", title, "by user:", req.user.id);
+      return res.status(409).json({ 
+        message: `Protocol Overlap: You already have an active ${type} report for "${title}". Please manage existing entries in your dossier.` 
+      });
+    }
+
     // ✅ Create item
     const item = await Item.create({
       type,

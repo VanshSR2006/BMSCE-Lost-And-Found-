@@ -54,6 +54,8 @@ const Post = () => {
   const [imageThumbnail, setImageThumbnail] = useState("");
   const [isCompressing, setIsCompressing] = useState(false);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   /* ---------------- IMAGE ---------------- */
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -116,6 +118,8 @@ const Post = () => {
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
       await api.post("/items/create", {
         ...formData,
@@ -126,6 +130,7 @@ const Post = () => {
       toast.success("Item posted successfully ✅");
       setTimeout(() => navigate("/"), 1200);
     } catch (err: any) {
+      setIsSubmitting(false); // Only reset on error so button stays disabled on success
       toast.error(
         err.response?.data?.message || "Failed to post item"
       );
@@ -335,13 +340,23 @@ const Post = () => {
               </div>
 
               <div className="pt-6">
-                <button 
-                  type="submit" 
-                  className="w-full bg-gradient-to-r from-[#6200EE] to-[#ff2e97] text-white h-16 rounded-2xl font-bold text-lg shadow-[0_10px_30px_rgba(255,46,151,0.3)] hover:shadow-[0_15px_40px_rgba(255,46,151,0.5)] active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  <span className="material-symbols-outlined">upload</span>
-                  Engage Protocol
-                </button>
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    className="w-full bg-gradient-to-r from-[#6200EE] to-[#ff2e97] text-white h-16 rounded-2xl font-bold text-lg shadow-[0_10px_30px_rgba(255,46,151,0.3)] hover:shadow-[0_15px_40px_rgba(255,46,151,0.5)] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Processing...
+                      </span>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined">upload</span>
+                        Engage Protocol
+                      </>
+                    )}
+                  </button>
               </div>
 
             </form>
