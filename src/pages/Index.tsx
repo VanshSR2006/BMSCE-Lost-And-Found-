@@ -258,35 +258,35 @@ const Index = () => {
             </div>
             <div className="w-full lg:w-1/2">
                <h2 className="text-4xl md:text-5xl font-extrabold mb-12 tracking-tight text-white font-['Plus_Jakarta_Sans']">How it Works</h2>
-               <div className="space-y-10">
-                 <div className="flex gap-8 group">
-                   <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-[#6200EE]/20 group-hover:border-[#b89fff] transition-all duration-300">
-                     <span className="material-symbols-outlined text-[#b89fff] text-3xl">notifications_active</span>
-                   </div>
-                   <div>
-                     <h4 className="font-bold text-xl mb-2 text-white">Smart Alerts</h4>
-                     <p className="text-purple-200/50 leading-relaxed text-sm">Instant notifications push to your device the moment a matching item is logged by anyone on campus.</p>
-                   </div>
-                 </div>
-                 <div className="flex gap-8 group">
-                   <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-[#4af8e3]/20 group-hover:border-[#4af8e3] transition-all duration-300">
-                     <span className="material-symbols-outlined text-[#4af8e3] text-3xl">dashboard_customize</span>
-                   </div>
-                   <div>
-                     <h4 className="font-bold text-xl mb-2 text-white">Digital Dashboard</h4>
-                     <p className="text-purple-200/50 leading-relaxed text-sm">Unified view for security staff and students to manage active reports without paper trails.</p>
-                   </div>
-                 </div>
-                 <div className="flex gap-8 group">
-                   <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-[#ff2e97]/20 group-hover:border-[#ff2e97] transition-all duration-300">
-                     <span className="material-symbols-outlined text-[#ff2e97] text-3xl">location_on</span>
-                   </div>
-                   <div>
-                     <h4 className="font-bold text-xl mb-2 text-white">Safe Hubs</h4>
-                     <p className="text-purple-200/50 leading-relaxed text-sm">Mapped collection points across campus for secure physical handover verified by staff.</p>
-                   </div>
-                 </div>
-               </div>
+                <div className="space-y-10">
+                  <div className="flex gap-8 group">
+                    <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-[#6200EE]/20 group-hover:border-[#b89fff] transition-all duration-300 shadow-xl">
+                      <span className="material-symbols-outlined text-[#b89fff] text-3xl">hub</span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xl mb-2 text-white font-['Plus_Jakarta_Sans']">Neural Alignment</h4>
+                      <p className="text-purple-200/50 leading-relaxed text-sm">Our matching engine triggers instant alerts the moment a biological connection is detected between lost and found signatures.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-8 group">
+                    <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-[#4af8e3]/20 group-hover:border-[#4af8e3] transition-all duration-300 shadow-xl">
+                      <span className="material-symbols-outlined text-[#4af8e3] text-3xl">inventory_2</span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xl mb-2 text-white font-['Plus_Jakarta_Sans']">Digital Dossier</h4>
+                      <p className="text-purple-200/50 leading-relaxed text-sm">A centralized inventory to track anomaly reports. Manage your personal dossier and monitor active signatures in real-time.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-8 group">
+                    <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-[#ff2e97]/20 group-hover:border-[#ff2e97] transition-all duration-300 shadow-xl">
+                      <span className="material-symbols-outlined text-[#ff2e97] text-3xl">forum</span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xl mb-2 text-white font-['Plus_Jakarta_Sans']">Secure Handover</h4>
+                      <p className="text-purple-200/50 leading-relaxed text-sm">Coordinate returns through encrypted peer-to-peer secure links. Verify ownership and verify identities without intermediaries.</p>
+                    </div>
+                  </div>
+                </div>
             </div>
           </div>
         </section>
