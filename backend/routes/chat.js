@@ -46,9 +46,9 @@ router.get("/", authMiddleware, async (req, res) => {
       participants: userId,
       status: "active"
     })
-    .populate("participants", "name email role phone")
-    .populate("associatedItem", "title type location category")
-    .sort({ "lastMessage.createdAt": -1 });
+      .populate("participants", "name email role phone")
+      .populate("associatedItem", "title type location category")
+      .sort({ "lastMessage.createdAt": -1 });
 
     res.json(convs);
   } catch (err) {
@@ -66,8 +66,8 @@ router.get("/:id", authMiddleware, async (req, res) => {
       _id: req.params.id,
       participants: userId
     })
-    .populate("participants", "name email role phone")
-    .populate("associatedItem", "title type location category");
+      .populate("participants", "name email role phone")
+      .populate("associatedItem", "title type location category");
 
     if (!conv) return res.status(404).json({ message: "Chat not found" });
 
@@ -85,7 +85,7 @@ router.get("/:id/messages", authMiddleware, async (req, res) => {
     const userId = req.user.id || req.user._id;
     const messages = await Message.find({ conversationId: req.params.id })
       .sort({ createdAt: 1 });
-    
+
     // Clear unread count for this user when they fetch messages
     await Conversation.findByIdAndUpdate(req.params.id, {
       $set: { [`unreadCount.${userId}`]: 0 }
@@ -140,9 +140,9 @@ router.post("/initiate", authMiddleware, async (req, res) => {
       });
 
       // 1. Mark the source notification as accepted
-      await Notification.findByIdAndUpdate(notificationId, { 
+      await Notification.findByIdAndUpdate(notificationId, {
         status: "accepted",
-        conversationId: conv._id 
+        conversationId: conv._id
       });
 
       // 2. Notify the other user (Claimant/Founder) with a DIRECT chat link
@@ -220,11 +220,11 @@ router.put("/:id/close", authMiddleware, async (req, res) => {
     if (reason === "received") {
       try {
         console.log(`[Sector Handover] Closing link: ${conversationId}. Finalizing return protocol...`);
-        
+
         // Find the notification that spawned this chat or is linked to it
         // This gives us access to BOTH the lost and found item records.
         const sourceMatch = await Notification.findOne({ conversationId });
-        
+
         if (sourceMatch) {
           const itemsToDelete = [];
           if (sourceMatch.lostItem) itemsToDelete.push(sourceMatch.lostItem);

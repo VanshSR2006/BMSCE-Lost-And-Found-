@@ -15,7 +15,7 @@ const Notifications = () => {
   const navigate = useNavigate();
   const { notifications, clearNotification } = useNotifications();
   const { user } = useAuth();
-  
+
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -74,14 +74,13 @@ const Notifications = () => {
                   <CardContent className="p-6 relative">
                     {/* Decorative Background */}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-[#b89fff]/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-[#b89fff]/10 transition-colors pointer-events-none" />
-                    
+
                     <div className="flex gap-5 relative z-10">
                       <div className="flex-shrink-0">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 ${
-                          n.type === "match" ? "bg-[#4af8e3]/10 border border-[#4af8e3]/20 text-[#4af8e3]" : 
-                          n.type === "claim_request" ? "bg-[#ff2e97]/10 border border-[#ff2e97]/20 text-[#ff2e97]" :
-                          "bg-purple-500/10 border border-purple-500/20 text-purple-400"
-                        }`}>
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 ${n.type === "match" ? "bg-[#4af8e3]/10 border border-[#4af8e3]/20 text-[#4af8e3]" :
+                            n.type === "claim_request" ? "bg-[#ff2e97]/10 border border-[#ff2e97]/20 text-[#ff2e97]" :
+                              "bg-purple-500/10 border border-purple-500/20 text-purple-400"
+                          }`}>
                           {n.type === "claim_request" ? <CheckCheck className="h-6 w-6" /> : <Bell className="h-6 w-6" />}
                         </div>
                       </div>
@@ -117,18 +116,17 @@ const Notifications = () => {
                         )}
 
                         <div className="flex gap-3">
-                          <Button 
-                            className={`flex-1 h-11 rounded-xl font-bold transition-all shadow-lg ${
-                              n.type === "match" || n.type === "claim_request"
-                                ? "bg-gradient-to-r from-[#6200EE] to-[#ff2e97] text-white hover:shadow-[0_8px_20px_rgba(255,46,151,0.3)]" 
+                          <Button
+                            className={`flex-1 h-11 rounded-xl font-bold transition-all shadow-lg ${n.type === "match" || n.type === "claim_request"
+                                ? "bg-gradient-to-r from-[#6200EE] to-[#ff2e97] text-white hover:shadow-[0_8px_20px_rgba(255,46,151,0.3)]"
                                 : "bg-white/10 hover:bg-white/20 text-white"
-                            }`}
+                              }`}
                             onClick={() => handleAction(n)}
                           >
                             {n.type === "match" ? "Open Secure Link" : n.type === "claim_request" ? "Review Verification" : "View Protocol"}
                           </Button>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             className="flex-1 h-11 border border-white/5 hover:bg-red-500/10 text-purple-200/40 hover:text-red-400 rounded-xl font-bold transition-all"
                             onClick={() => clearNotification(n._id)}
                           >
@@ -151,7 +149,7 @@ const Notifications = () => {
         )}
       </main>
 
-      <HandoverVerification 
+      <HandoverVerification
         isOpen={isVerifying}
         onClose={() => setIsVerifying(false)}
         onApprove={handleApprove}

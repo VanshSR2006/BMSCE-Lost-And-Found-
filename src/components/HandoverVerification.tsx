@@ -74,7 +74,7 @@ const HandoverVerification: React.FC<HandoverVerificationProps> = ({
                 <div className="mt-4 p-4 bg-[#4af8e3]/5 border border-[#4af8e3]/20 rounded-2xl flex items-start gap-3">
                   <Lock className="text-[#4af8e3] h-4 w-4 mt-0.5" />
                   <div>
-                    <span className="text-[9px] uppercase font-black text-[#4af8e3] block mb-1">Your Secret Detail</span>
+                    <span className="text-[9px] uppercase font-black text-[#4af8e3] block mb-1">Private Post Note (Never public)</span>
                     <p className="text-xs text-[#4af8e3] font-bold">{foundItem?.secretDetail || "Not specified"}</p>
                   </div>
                 </div>
@@ -99,8 +99,8 @@ const HandoverVerification: React.FC<HandoverVerificationProps> = ({
                 
                 {/* CHALLENGE ANSWER */}
                 <div className="mt-4 p-4 bg-[#ff2e97]/10 border border-[#ff2e97]/20 rounded-2xl">
-                  <span className="text-[9px] uppercase font-black text-[#ff2e97] block mb-1">Loser's Challenge Proof</span>
-                  <p className="text-white text-sm font-bold leading-relaxed">{notification.challengeResponse || "No proof provided."}</p>
+                  <span className="text-[9px] uppercase font-black text-[#ff2e97] block mb-1">Claimant's Verification Proof</span>
+                  <p className="text-white text-sm font-bold leading-relaxed">{notification.challengeResponse || "System detected match automatically."}</p>
                 </div>
               </div>
             </div>

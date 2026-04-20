@@ -410,10 +410,10 @@ const ItemDetail = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <Label className="text-[#4af8e3] text-xs font-black uppercase tracking-widest">Verification Challenge</Label>
+                  <Label className="text-[#4af8e3] text-xs font-black uppercase tracking-widest">Provide Proof of Ownership</Label>
                   <Textarea
                     className="bg-white/5 border-white/10 text-purple-50 rounded-xl min-h-[100px]"
-                    placeholder="Describe a detail not mentioned in the public listing (e.g., 'Wallpaper is my dog', 'Scratch on the left side')."
+                    placeholder="Describe a hidden detail about this item that only the true owner would know, to prove it belongs to you."
                     value={challengeAnswer}
                     onChange={(e) => setChallengeAnswer(e.target.value)}
                   />
