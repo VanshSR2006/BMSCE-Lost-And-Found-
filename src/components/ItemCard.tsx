@@ -11,6 +11,7 @@ interface ItemCardProps {
   imageUrl?: string;
   thumbnail?: string;
   status?: "active" | "returned";
+  isCreatorVerified?: boolean;
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -33,6 +34,7 @@ const ItemCard = ({
   imageUrl,
   thumbnail,
   status = "active",
+  isCreatorVerified = false,
 }: ItemCardProps) => {
   const displayImage = thumbnail || imageUrl || null;
   return (
@@ -127,15 +129,25 @@ const ItemCard = ({
             </div>
 
             <div className="pt-3 border-t border-white/10 flex justify-between items-center mt-auto">
-              {/* CATEGORY */}
-              <span
-                className="
-                  inline-block px-3 py-1 text-[10px] uppercase font-bold tracking-wider
-                  rounded-full border border-white/10 bg-white/5 text-purple-200/80
-                "
-              >
-                {category}
-              </span>
+              {/* CATEGORY & VERIFICATION */}
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="
+                    inline-block px-3 py-1 text-[10px] uppercase font-bold tracking-wider
+                    rounded-full border border-white/10 bg-white/5 text-purple-200/80
+                  "
+                >
+                  {category}
+                </span>
+                {isCreatorVerified && (
+                  <span
+                    className="material-symbols-outlined text-[#4af8e3] text-sm select-none"
+                    title="Verified Student Report"
+                  >
+                    verified
+                  </span>
+                )}
+              </div>
               <span className="material-symbols-outlined text-white/30 group-hover:text-white group-hover:translate-x-1 transition-all">arrow_forward</span>
             </div>
           </div>

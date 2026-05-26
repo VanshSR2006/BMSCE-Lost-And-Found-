@@ -18,7 +18,9 @@ export interface User {
   phone: string;
   usn: string;
   branch: string;
+  isUsnVerified?: boolean;
 }
+
 
 interface AuthContextValue {
   user: User | null;

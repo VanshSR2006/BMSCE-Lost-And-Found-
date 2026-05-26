@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Upload, X } from "lucide-react";
 
@@ -53,8 +53,55 @@ const Post = () => {
   const [imagePreview, setImagePreview] = useState("");
   const [imageThumbnail, setImageThumbnail] = useState("");
   const [isCompressing, setIsCompressing] = useState(false);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<{ title: string; description: string; category: string } | null>(null);
+
+  // Sync contact info when user state is loaded asynchronously
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        contactName: prev.contactName || user.name || "",
+        contactPhone: prev.contactPhone || user.phone || "",
+        contactEmail: prev.contactEmail || user.email || "",
+      }));
+    }
+  }, [user]);
+
+  const handleAiExtract = async () => {
+    if (!imagePreview) {
+      toast.error("Please upload an image first.");
+      return;
+    }
+    setIsAnalyzing(true);
+    setAiSuggestions(null);
+    try {
+      const response = await api.post("/items/analyze-image", {
+        image: imagePreview
+      });
+      setAiSuggestions(response.data);
+      toast.success("AI extraction complete! Review suggestions below.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to analyze image with AI.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const applyAiSuggestions = () => {
+    if (!aiSuggestions) return;
+    setFormData((prev) => ({
+      ...prev,
+      title: aiSuggestions.title,
+      description: aiSuggestions.description,
+      category: aiSuggestions.category,
+    }));
+    toast.success("AI suggestions applied to form!");
+    setAiSuggestions(null);
+  };
+
 
   /* ---------------- IMAGE ---------------- */
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -305,21 +352,114 @@ const Post = () => {
               <div>
                 <Label className="text-purple-200 uppercase text-xs font-bold tracking-wider mb-2 block">Visual Evidence (Optional)</Label>
                 {imagePreview ? (
-                  <div className="relative group/img rounded-2xl overflow-hidden border border-white/10 shadow-xl">
-                    <img
-                      src={imagePreview}
-                      className="w-full h-48 object-cover group-hover/img:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-black/20 group-hover/img:bg-black/40 transition-colors"></div>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 rounded-full h-10 w-10 shadow-lg"
-                      onClick={() => setImagePreview("")}
-                    >
-                      <X size={18} />
-                    </Button>
+                  <div className="space-y-6">
+                    <div className="relative group/img rounded-2xl overflow-hidden border border-white/10 shadow-xl">
+                      <img
+                        src={imagePreview}
+                        className="w-full h-48 object-cover group-hover/img:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-black/20 group-hover/img:bg-black/40 transition-colors"></div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 rounded-full h-10 w-10 shadow-lg z-20"
+                        onClick={() => {
+                          setImagePreview("");
+                          setAiSuggestions(null);
+                        }}
+                      >
+                        <X size={18} />
+                      </Button>
+                    </div>
+
+                    {/* AI EXTRACTION OPTIONS */}
+                    <div className="bg-[#16052a]/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="material-symbols-outlined text-[#4af8e3]">psychology</span>
+                        <h4 className="text-white font-bold text-sm uppercase tracking-wider">AI Image Protocol</h4>
+                      </div>
+                      <p className="text-xs text-purple-200/50">
+                        Scan the uploaded image to automatically detect the item's title, description, and category.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <Button
+                          type="button"
+                          onClick={handleAiExtract}
+                          disabled={isAnalyzing}
+                          className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-black font-bold h-12 rounded-xl transition-all shadow-[0_4px_15px_rgba(20,184,166,0.2)] flex items-center justify-center gap-2"
+                        >
+                          {isAnalyzing ? (
+                            <>
+                              <span className="h-4 w-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                              Analyzing Image...
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined text-lg">smart_toy</span>
+                              Extract Details with AI
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            toast.info("Manual input protocol active. Please fill details below.");
+                            setAiSuggestions(null);
+                          }}
+                          className="border-white/10 bg-white/5 text-white hover:bg-white/10 h-12 rounded-xl"
+                        >
+                          Keep Manual Entry
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* SUGGESTIONS DISPLAY CARD */}
+                    {aiSuggestions && (
+                      <div className="bg-[#0d1f1c]/90 border border-teal-500/30 rounded-2xl p-6 space-y-4 shadow-[0_0_30px_rgba(20,184,166,0.15)] animate-in fade-in zoom-in-95 duration-300">
+                        <div className="flex items-center justify-between border-b border-teal-500/20 pb-3">
+                          <div className="flex items-center gap-2 text-teal-400">
+                            <span className="material-symbols-outlined text-lg">temp_preferences_custom</span>
+                            <span className="text-xs font-black tracking-[0.2em] uppercase">AI Scanner Results</span>
+                          </div>
+                          <span className="text-[10px] bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded-full font-bold">Suggestions Ready</span>
+                        </div>
+
+                        <div className="space-y-3 text-sm">
+                          <div>
+                            <span className="text-[10px] text-teal-400/60 uppercase font-bold tracking-wider block mb-1">Detected Title</span>
+                            <div className="text-white bg-black/40 px-3 py-2.5 rounded-lg border border-white/5">{aiSuggestions.title}</div>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-teal-400/60 uppercase font-bold tracking-wider block mb-1">Detected Category</span>
+                            <div className="text-white bg-black/40 px-3 py-2.5 rounded-lg border border-white/5 capitalize">{aiSuggestions.category}</div>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-teal-400/60 uppercase font-bold tracking-wider block mb-1">Detected Description</span>
+                            <div className="text-white bg-black/40 px-3 py-2.5 rounded-lg border border-white/5 max-h-24 overflow-y-auto">{aiSuggestions.description}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                          <Button
+                            type="button"
+                            onClick={applyAiSuggestions}
+                            className="flex-1 bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-500 hover:to-emerald-500 text-black font-bold h-11 rounded-xl shadow-[0_4px_15px_rgba(74,248,227,0.3)]"
+                          >
+                            Apply suggestions to Form
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setAiSuggestions(null)}
+                            className="text-gray-400 hover:text-white hover:bg-white/5 h-11 rounded-xl"
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <label className="border-dashed border-2 border-white/20 hover:border-[#4af8e3] bg-[#16052a]/50 hover:bg-white/5 transition-all p-10 rounded-2xl text-center cursor-pointer block group/upload">

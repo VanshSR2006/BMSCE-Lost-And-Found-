@@ -301,7 +301,14 @@ const ItemDetail = () => {
                     <User className="h-4 w-4 text-blue-400" />
                     <span className="text-[10px] uppercase font-black tracking-widest text-blue-400">Reported By</span>
                   </div>
-                  <p className="text-white font-bold truncate">{item.createdBy?.name || "Verified Campus User"}</p>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p className="text-white font-bold truncate">{item.createdBy?.name || "Verified Campus User"}</p>
+                    {item.createdBy?.isUsnVerified && (
+                      <span className="material-symbols-outlined text-[#4af8e3] text-sm select-none" title="Verified BMSCE Student">
+                        verified
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -431,7 +438,7 @@ const ItemDetail = () => {
                 e.preventDefault();
                 handleClaim();
               }}
-              disabled={isSubmittingClaim || (item.type === "found" && !hasMatchForThisItem && (!selectedLostItem || !challengeAnswer))}
+              disabled={isSubmittingClaim || (item.type === "found" && !hasMatchForThisItem && (!selectedLostItem || !challengeAnswer.trim()))}
               className={`rounded-xl h-12 px-8 flex-1 font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 ${item.type === "lost" ? "bg-[#ff2e97] text-white" : "bg-[#4af8e3] text-[#16052a]"}`}
             >
               {isSubmittingClaim ? "Encrypting..." : "Transmit Request"}

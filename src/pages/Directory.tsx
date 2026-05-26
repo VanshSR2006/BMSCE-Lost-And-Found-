@@ -192,6 +192,7 @@ const Directory = () => {
                       type={item.type}
                       imageUrl={item.image || undefined}
                       thumbnail={item.thumbnail || undefined}
+                      isCreatorVerified={item.createdBy?.isUsnVerified}
                     />
                   </div>
                 </div>

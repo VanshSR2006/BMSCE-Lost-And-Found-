@@ -48,9 +48,9 @@ const Profile = () => {
   }, [isAuthenticated]);
 
   const handleSave = async () => {
-    // 10-digit validation
+    // 10-digit validation (optional, but must be 10 digits if entered)
     const cleanPhone = phone.replace(/\D/g, "");
-    if (cleanPhone.length !== 10) {
+    if (cleanPhone.length > 0 && cleanPhone.length !== 10) {
       toast.error("Phone number must be exactly 10 digits");
       return;
     }
@@ -122,12 +122,26 @@ const Profile = () => {
             </div>
 
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-extrabold text-white font-['Plus_Jakarta_Sans'] truncate">{user?.name}</h1>
-              <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest border ${
-                user?.role === "admin"
-                  ? "bg-[#ff6e84]/15 text-[#ffb2b9] border-[#ff6e84]/40"
-                  : "bg-[#4af8e3]/10 text-[#dcfff8] border-[#4af8e3]/30"
-              }`}>{user?.role}</span>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-xl font-extrabold text-white font-['Plus_Jakarta_Sans'] truncate">{user?.name}</h1>
+                {user?.isUsnVerified && (
+                  <span className="material-symbols-outlined text-[#4af8e3] text-lg select-none" title="Verified BMSCE Student">
+                    verified
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest border ${
+                  user?.role === "admin"
+                    ? "bg-[#ff6e84]/15 text-[#ffb2b9] border-[#ff6e84]/40"
+                    : "bg-[#4af8e3]/10 text-[#dcfff8] border-[#4af8e3]/30"
+                }`}>{user?.role}</span>
+                {user?.isUsnVerified && (
+                  <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest bg-teal-500/10 text-[#4af8e3] border border-teal-500/20">
+                    Verified USN
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Edit toggle */}
@@ -200,7 +214,14 @@ const Profile = () => {
                     className="w-full bg-transparent text-sm text-white placeholder-white/30 outline-none border-b border-[#ff2e97]/40 pb-0.5"
                   />
                 ) : (
-                  <p className="text-sm text-white">{usn || <span className="text-white/30 italic">Not set — tap edit to add</span>}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-white">{usn || <span className="text-white/30 italic">Not set — tap edit to add</span>}</p>
+                    {user?.isUsnVerified && (
+                      <span className="bg-teal-500/20 text-[#4af8e3] text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                        Verified
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -267,6 +288,7 @@ const Profile = () => {
                   date={item.date}
                   type={item.type}
                   imageUrl={item.image}
+                  isCreatorVerified={user?.isUsnVerified}
                 />
                 <button
                   onClick={() => handleDelete(item._id)}

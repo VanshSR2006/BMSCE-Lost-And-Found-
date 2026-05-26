@@ -36,7 +36,13 @@ const userSchema = new mongoose.Schema({
   branch: {
     type: String,
     default: ""
+  },
+
+  isUsnVerified: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
+
 
 module.exports = mongoose.model("User", userSchema);

@@ -6,6 +6,10 @@ const User = require("../models/User");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const jwt = require("jsonwebtoken");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+
 
 /* ============================
    AUTH MIDDLEWARE
@@ -27,6 +31,61 @@ const authMiddleware = (req, res, next) => {
     return res.status(401).json({ message: "Invalid token" });
   }
 };
+
+/* ============================
+   AI IMAGE ANALYSIS
+============================ */
+router.post("/analyze-image", authMiddleware, async (req, res) => {
+  try {
+    const { image } = req.body;
+    if (!image) {
+      return res.status(400).json({ message: "No image provided for analysis." });
+    }
+
+    if (!genAI) {
+      return res.status(500).json({ message: "AI Analysis service is not configured on this server." });
+    }
+
+    // Extract mime type (e.g. data:image/png;base64,... -> image/png)
+    let mimeType = "image/jpeg";
+    const mimeMatch = image.match(/^data:(image\/\w+);base64,/);
+    if (mimeMatch) {
+      mimeType = mimeMatch[1];
+    }
+
+    const cleanBase64 = image.replace(/^data:image\/\w+;base64,/, "");
+
+    const imagePart = {
+      inlineData: {
+        data: cleanBase64,
+        mimeType: mimeType
+      }
+    };
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = "Analyze this image of a lost or found item. Identify and return the details in valid JSON format. " +
+      "The JSON must have the following keys: " +
+      "- title: a concise, clear title/name of the item (e.g. 'Blue Hydro Flask Water Bottle', 'Black Leather Wallet') " +
+      "- description: a detailed description of visible features, colors, brands, and conditions " +
+      "- category: exactly one of: 'wallet', 'id-card', 'bottle', 'stationery', 'electronics', 'other' " +
+      "Do not include any markdown formatting. Return ONLY raw valid JSON code.";
+
+    const result = await model.generateContent({
+      contents: [prompt, imagePart],
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    const responseText = result.response.text();
+    const parsedData = JSON.parse(responseText);
+
+    res.json(parsedData);
+  } catch (err) {
+    console.error("❌ AI Analysis Error:", err);
+    res.status(500).json({ message: "AI analysis failed. Please fill the fields manually." });
+  }
+});
 
 /* ============================
    CREATE ITEM + AUTO MATCH ✅
@@ -179,7 +238,10 @@ router.get("/mine", authMiddleware, async (req, res) => {
 
 router.get("/", async (req, res) => {
   // Exclude secretDetail from public listing and only show active items
-  const items = await Item.find({ status: "active" }).select("-secretDetail").sort({ createdAt: -1 });
+  const items = await Item.find({ status: "active" })
+    .populate("createdBy", "name isUsnVerified")
+    .select("-secretDetail")
+    .sort({ createdAt: -1 });
   res.json(items);
 });
 
@@ -241,20 +303,37 @@ router.put("/:id/claim", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/:id", authMiddleware, async (req, res) => {
-  const item = await Item.findById(req.params.id);
-  if (!item) return res.status(404).json({ message: "Item not found" });
-  
-  // Only show secretDetail to owner or admin
-  const isOwner = req.user && req.user.id === item.createdBy.toString();
-  const isAdmin = req.user && req.user.role === "admin";
-  
-  const itemData = item.toObject();
-  if (!isOwner && !isAdmin) {
-    delete itemData.secretDetail;
+router.get("/:id", async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id).populate("createdBy", "name isUsnVerified");
+    if (!item) return res.status(404).json({ message: "Item not found" });
+    
+    let isOwner = false;
+    let isAdmin = false;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const creatorId = item.createdBy._id || item.createdBy;
+        isOwner = decoded.id === creatorId.toString();
+        isAdmin = decoded.role === "admin";
+      } catch (err) {
+        // Invalid token is ignored, proceed as guest
+      }
+    }
+    
+    const itemData = item.toObject();
+    if (!isOwner && !isAdmin) {
+      delete itemData.secretDetail;
+    }
+    
+    res.json(itemData);
+  } catch (err) {
+    console.error("❌ GET ITEM ERROR:", err);
+    res.status(500).json({ message: "Failed to fetch item details" });
   }
-  
-  res.json(itemData);
 });
 
 router.delete("/:id", authMiddleware, async (req, res) => {

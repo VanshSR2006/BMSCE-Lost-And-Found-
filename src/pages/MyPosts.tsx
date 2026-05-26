@@ -77,6 +77,7 @@ const MyPosts = () => {
                   type={item.type}
                   imageUrl={item.image}
                   status={item.status}
+                  isCreatorVerified={user?.isUsnVerified}
                 />
 
                 {/* Delete / Claim Button */}

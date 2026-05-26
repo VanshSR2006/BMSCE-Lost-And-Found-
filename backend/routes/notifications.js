@@ -33,8 +33,9 @@ router.get("/", authMiddleware, async (req, res) => {
       user: userId,
       status: "pending",
     })
-      .populate("lostItem", "title location category")
-      .populate("foundItem", "title location category _id")
+      .populate("lostItem", "title location category description date")
+      .populate("foundItem", "title location category description date secretDetail _id")
+      .populate("requesterLostItem", "title location category description date")
       .sort({ createdAt: -1 });
 
     let result;
@@ -52,16 +53,19 @@ router.get("/", authMiddleware, async (req, res) => {
           lostItem: n.lostItem || null,
         }));
     } else {
-      // Regular users: match notifications require both lostItem and foundItem
+      // Regular users: match or claim notifications
       result = notifications
         .filter((n) => n.lostItem && n.foundItem)
         .map((n) => ({
           _id: n._id,
           message: n.message,
           createdAt: n.createdAt,
-          type: "match",
+          type: n.type || "match",
           lostItem: n.lostItem,
           foundItem: n.foundItem,
+          challengeResponse: n.challengeResponse || "",
+          requesterLostItem: n.requesterLostItem || null,
+          conversationId: n.conversationId || null,
         }));
     }
 

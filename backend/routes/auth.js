@@ -38,12 +38,14 @@ router.post("/signup", async (req, res) => {
       message: "Signup successful",
       token,
       user: {
+        _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
         phone: user.phone || "",
         usn: user.usn || "",
         branch: user.branch || "",
+        isUsnVerified: user.isUsnVerified || false,
       },
     });
   } catch (err) {
@@ -81,6 +83,7 @@ router.post("/login", async (req, res) => {
         phone: user.phone || "",
         usn: user.usn || "",
         branch: user.branch || "",
+        isUsnVerified: user.isUsnVerified || false,
       },
     });
   } catch (err) {
@@ -102,6 +105,7 @@ router.get("/me", authMiddleware, async (req, res) => {
       phone: user.phone || "",
       usn: user.usn || "",
       branch: user.branch || "",
+      isUsnVerified: user.isUsnVerified || false,
     }
   });
 });
@@ -164,6 +168,7 @@ router.post("/google", async (req, res) => {
         phone: user.phone || "",
         usn: user.usn || "",
         branch: user.branch || "",
+        isUsnVerified: user.isUsnVerified || false,
       },
     });
   } catch (err) {
@@ -181,7 +186,12 @@ router.put("/profile", authMiddleware, async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (phone) user.phone = phone;
-    if (usn) user.usn = usn;
+    if (usn !== undefined) {
+      const cleanUsn = usn.trim().toUpperCase();
+      user.usn = cleanUsn;
+      const usnRegex = /^1(BM|BF)\d{2}[A-Z]{2}\d{3}$/i;
+      user.isUsnVerified = cleanUsn ? usnRegex.test(cleanUsn) : false;
+    }
     if (branch) user.branch = branch;
 
     await user.save();
@@ -196,6 +206,7 @@ router.put("/profile", authMiddleware, async (req, res) => {
         phone: user.phone,
         usn: user.usn,
         branch: user.branch,
+        isUsnVerified: user.isUsnVerified,
       },
     });
   } catch (err) {
