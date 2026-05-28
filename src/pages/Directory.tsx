@@ -54,7 +54,7 @@ const Directory = () => {
 
   // FILTERING + SORTING
   const filteredAndSortedItems = useMemo(() => {
-    let filtered = items.filter((item) => {
+    const filtered = items.filter((item) => {
       const matchesSearch =
         item.title?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         item.description?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||

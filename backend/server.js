@@ -134,7 +134,7 @@ io.on("connection", (socket) => {
 /* =====================
    DB + SERVER START
 ===================== */
-const PORT = process.env.PORT || 5001;
+const PORT = Number(process.env.PORT) || 5004;
 
 mongoose
   .connect(process.env.MONGO_URI)

@@ -6,9 +6,9 @@ const User = require("../models/User");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const jwt = require("jsonwebtoken");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenAI } = require("@google/genai");
 
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
 
 /* ============================
@@ -42,9 +42,34 @@ router.post("/analyze-image", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "No image provided for analysis." });
     }
 
-    if (!genAI) {
+    if (!ai) {
       return res.status(500).json({ message: "AI Analysis service is not configured on this server." });
     }
+
+    const extractJsonObject = (text) => {
+      if (!text) return null;
+      const trimmed = String(text).trim();
+      // If model already returned pure JSON, parse directly.
+      if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+        try {
+          return JSON.parse(trimmed);
+        } catch {
+          // fall through to substring extraction
+        }
+      }
+      // Otherwise, try to extract the first {...} block.
+      const start = trimmed.indexOf("{");
+      const end = trimmed.lastIndexOf("}");
+      if (start >= 0 && end > start) {
+        const candidate = trimmed.slice(start, end + 1);
+        try {
+          return JSON.parse(candidate);
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
 
     // Extract mime type (e.g. data:image/png;base64,... -> image/png)
     let mimeType = "image/jpeg";
@@ -55,32 +80,111 @@ router.post("/analyze-image", authMiddleware, async (req, res) => {
 
     const cleanBase64 = image.replace(/^data:image\/\w+;base64,/, "");
 
-    const imagePart = {
-      inlineData: {
-        data: cleanBase64,
-        mimeType: mimeType
+    const imagePart = { inlineData: { data: cleanBase64, mimeType } };
+
+    // Gemini 1.5 is shutdown; use current models.
+    const candidateModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+    const prompt = `You are an expert visual analyst. Analyze the provided image of a lost or found item and extract its details.
+
+Return ONLY a raw JSON object with EXACTLY these keys:
+- "title": a concise, clear title/name of the item (e.g., "Blue Hydro Flask Water Bottle")
+- "description": a detailed description of visible features, colors, brands, and condition
+- "category": one of the predefined categories: "wallet", "id-card", "bottle", "stationery", "electronics", "other"
+
+Do NOT include any explanatory text, markdown, or placeholders such as "Detected Title" or "Detected Description". If any field cannot be determined, leave it as an empty string.
+
+Example of correct output:
+{ "title": "Blue Hydro Flask Water Bottle", "description": "A blue, 500ml hydro flask with a silver lid, slightly scratched," "category": "bottle" }
+
+Analyze the image and return ONLY the JSON.
+`;
+
+
+    // NOTE: The Generative AI SDK expects "parts" (text + inlineData).
+    // Also: model availability differs by key/project. Try a small set of candidates.
+    let result;
+    let lastErr;
+    for (const modelName of candidateModels) {
+      try {
+        result = await ai.models.generateContent({
+          model: modelName,
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }, imagePart],
+            },
+          ],
+        });
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        // Try next model only for "model not found / not supported" type errors
+        const msg = String(e?.message || "");
+        const status = e?.status || e?.code;
+        const isModelError =
+          status === 404 ||
+          msg.includes("is not found") ||
+          msg.includes("not supported for generateContent") ||
+          msg.includes("models/");
+        if (!isModelError) break;
       }
+    }
+
+    if (!result) {
+      console.error("❌ AI Analysis Error (no model succeeded):", lastErr);
+      // Detect permission related errors
+      const errMsg = String(lastErr?.message || "");
+      const statusCode = lastErr?.status || lastErr?.code;
+      if (statusCode === 403 || errMsg.toLowerCase().includes("permission")) {
+        return res.status(403).json({
+          message:
+            "AI service unavailable: provided GEMINI_API_KEY lacks required permissions. Please verify your API key.",
+        });
+      }
+      return res.status(500).json({
+        message:
+          "AI model unavailable on this server key. Please try again later or fill fields manually.",
+      });
+    }
+
+    const responseText =
+      typeof result?.text === "string"
+        ? result.text
+        : typeof result?.text === "function"
+          ? result.text()
+          : "";
+    console.log('🤖 Gemini raw response:', responseText);
+    const parsedData = extractJsonObject(responseText);
+    if (!parsedData || typeof parsedData !== "object") {
+      return res.status(500).json({ message: "AI returned invalid JSON. Please try again or fill fields manually." });
+    }
+
+    // Normalize & validate output shape
+    const safe = {
+      title: typeof parsedData.title === "string" ? parsedData.title.trim() : "",
+      description: typeof parsedData.description === "string" ? parsedData.description.trim() : "",
+      category: typeof parsedData.category === "string" ? parsedData.category.trim() : "",
     };
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = "Analyze this image of a lost or found item. Identify and return the details in valid JSON format. " +
-      "The JSON must have the following keys: " +
-      "- title: a concise, clear title/name of the item (e.g. 'Blue Hydro Flask Water Bottle', 'Black Leather Wallet') " +
-      "- description: a detailed description of visible features, colors, brands, and conditions " +
-      "- category: exactly one of: 'wallet', 'id-card', 'bottle', 'stationery', 'electronics', 'other' " +
-      "Do not include any markdown formatting. Return ONLY raw valid JSON code.";
+    // Strict category normalization
+    const allowed = new Set(["wallet", "id-card", "bottle", "stationery", "electronics", "other"]);
+    if (safe.category) {
+      const c = safe.category.toLowerCase();
+      safe.category = allowed.has(c) ? c : "";
+    }
 
-    const result = await model.generateContent({
-      contents: [prompt, imagePart],
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
-    });
+    // Detect placeholder values
+    if (safe.title && safe.title.toLowerCase().includes('detected')) {
+      console.warn('⚠️ Placeholder title detected, rejecting response');
+      return res.status(500).json({ message: 'AI could not extract real data. Please try another photo or fill manually.' });
+    }
+    if (safe.description && safe.description.toLowerCase().includes('detected')) {
+      console.warn('⚠️ Placeholder description detected, rejecting response');
+      return res.status(500).json({ message: 'AI could not extract real data. Please try another photo or fill manually.' });
+    }
+    res.json(safe);
 
-    const responseText = result.response.text();
-    const parsedData = JSON.parse(responseText);
-
-    res.json(parsedData);
   } catch (err) {
     console.error("❌ AI Analysis Error:", err);
     res.status(500).json({ message: "AI analysis failed. Please fill the fields manually." });

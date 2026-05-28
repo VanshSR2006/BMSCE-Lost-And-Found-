@@ -86,6 +86,13 @@ const Post = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // AI scan endpoint requires JWT; don't call it for logged-out users
+    if (postMode === "ai" && !isAuthenticated) {
+      toast.error("Please login first to use AI scan.");
+      navigate("/auth");
+      return;
+    }
+
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Image must be under 5MB");
       return;
@@ -324,7 +331,7 @@ const Post = () => {
                         <Label className="text-purple-200 uppercase text-xs font-bold tracking-wider mb-2 block">Item Signature (Title) <span className="text-[#ff2e97]">*</span></Label>
                         <Input
                           className="bg-[#16052a]/80 border-white/10 text-white h-14 rounded-xl focus-visible:ring-teal-400"
-                          placeholder="Detected Title"
+                          placeholder="Enter title"
                           value={formData.title}
                           onChange={(e) =>
                             setFormData({ ...formData, title: e.target.value })
@@ -338,7 +345,7 @@ const Post = () => {
                         <Textarea
                           rows={4}
                           className="bg-[#16052a]/80 border-white/10 text-white rounded-xl focus-visible:ring-teal-400 resize-none"
-                          placeholder="Detected Description"
+                          placeholder="Enter description"
                           value={formData.description}
                           onChange={(e) =>
                             setFormData({ ...formData, description: e.target.value })
