@@ -94,7 +94,7 @@ router.post("/analyze-image", analyzeImageLimiter, authMiddleware, async (req, r
 
     // Gemini 1.5 is shutdown; use current models.
     // FIX: "gemini-3.5-flash" does not exist; replaced with "gemini-2.0-flash"
-    const candidateModels = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+    const candidateModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
     const prompt = `You are an expert visual analyst. Analyze the provided image of a lost or found item and extract its details.
 
 Return ONLY a raw JSON object with EXACTLY these keys:
