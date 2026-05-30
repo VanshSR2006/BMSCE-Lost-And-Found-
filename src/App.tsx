@@ -33,12 +33,6 @@ import ChatRoom from "./pages/ChatRoom";
 
 const queryClient = new QueryClient();
 
-/* ================================
-   SCROLL RESTORATION
-   Resets scroll to top on every route change.
-   Fixes mobile "scroll bleed" where navigating to a new page
-   inherits the scroll position from the previous page.
-================================ */
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -47,19 +41,13 @@ const ScrollToTop = () => {
   return null;
 };
 
-/* ================================
-   ROUTE ANIMATIONS CONTROLLER
-================================ */
 const AnimatedRoutes = () => {
   const location = useLocation();
 
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        {/* ✅ HOME — NOW WRAPPED FOR CONSISTENCY */}
         <Route path="/" element={<PageTransition><Index /></PageTransition>} />
-
-        {/* ✅ ALL OTHER ROUTES — SMOOTH TRANSITION */}
         <Route path="/directory" element={<PageTransition><Directory /></PageTransition>} />
         <Route path="/post" element={<PageTransition><Post /></PageTransition>} />
         <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
@@ -71,53 +59,44 @@ const AnimatedRoutes = () => {
         <Route path="/admin" element={<PageTransition><Admin /></PageTransition>} />
         <Route path="/chats" element={<PageTransition><Chats /></PageTransition>} />
         <Route path="/chat/:id" element={<PageTransition><ChatRoom /></PageTransition>} />
-
-        {/* ✅ 404 */}
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>
   );
 };
 
-/* ================================
-   APP ROOT
-================================ */
 const App = () => {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 2500); // 2.5s for a smooth reveal
+    }, 2500);
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AuthProvider>
-          <NotificationProvider>
-            <ChatProvider>
-              <ItemsProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <NotificationProvider>
+              <ChatProvider>
+                <ItemsProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <Sonner />
 
-                  <AnimatePresence>
-                    {showSplash && <StartupSplash />}
-                  </AnimatePresence>
+                    <AnimatePresence>
+                      {showSplash && <StartupSplash />}
+                    </AnimatePresence>
 
-                  <BrowserRouter>
-                    {/* GLOBAL 3D GLASSMORPHISM MULTI-VIEW BACKGROUND */}
                     <div className="fixed inset-0 min-h-screen bg-[#16052a] -z-50 overflow-hidden pointer-events-none">
                       <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] bg-purple-600/50 rounded-full blur-[80px] mix-blend-screen opacity-50"></div>
                       <div className="absolute bottom-[20%] left-[-150px] w-[400px] h-[400px] bg-teal-600/30 rounded-full blur-[80px] mix-blend-screen opacity-50"></div>
                     </div>
 
-                    {/* Scroll to top on every navigation — fixes mobile scroll bleed */}
                     <ScrollToTop />
-
-                    {/* ✅ PARTICLES — RENDER ONCE GLOBALLY */}
                     <ParticlesBackground />
 
                     <div className="relative z-0 min-h-screen flex flex-col">
@@ -125,12 +104,13 @@ const App = () => {
                         <AnimatedRoutes />
                       </Layout>
                     </div>
-                  </BrowserRouter>
-                </TooltipProvider>
-              </ItemsProvider>
-            </ChatProvider>
-          </NotificationProvider>
-        </AuthProvider>
+
+                  </TooltipProvider>
+                </ItemsProvider>
+              </ChatProvider>
+            </NotificationProvider>
+          </AuthProvider>
+        </BrowserRouter>
       </ThemeProvider>
     </QueryClientProvider>
   );
