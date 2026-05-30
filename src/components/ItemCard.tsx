@@ -61,7 +61,10 @@ const ItemCard = ({
             <img
               src={displayImage}
               alt={title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover grayscale-[0.2] transition-transform duration-700 ease-out group-hover:scale-110 group-hover:grayscale-0"
+              style={{ willChange: "transform" }}
             />
           ) : (
             <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${type === 'lost' ? 'bg-[#ff2e97]/5' : 'bg-[#4af8e3]/5'}`}>

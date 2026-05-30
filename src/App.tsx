@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,7 +16,6 @@ import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ChatProvider } from "@/contexts/ChatContext";
 import StartupSplash from "@/components/StartupSplash";
 import Layout from "@/components/Layout";
-import { useEffect, useState } from "react";
 
 import Index from "./pages/Index";
 import Directory from "./pages/Directory";
@@ -34,11 +34,25 @@ import ChatRoom from "./pages/ChatRoom";
 const queryClient = new QueryClient();
 
 /* ================================
+   SCROLL RESTORATION
+   Resets scroll to top on every route change.
+   Fixes mobile "scroll bleed" where navigating to a new page
+   inherits the scroll position from the previous page.
+================================ */
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [pathname]);
+  return null;
+};
+
+/* ================================
    ROUTE ANIMATIONS CONTROLLER
 ================================ */
 const AnimatedRoutes = () => {
   const location = useLocation();
-  
+
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
@@ -99,6 +113,9 @@ const App = () => {
                       <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] bg-purple-600/50 rounded-full blur-[80px] mix-blend-screen opacity-50"></div>
                       <div className="absolute bottom-[20%] left-[-150px] w-[400px] h-[400px] bg-teal-600/30 rounded-full blur-[80px] mix-blend-screen opacity-50"></div>
                     </div>
+
+                    {/* Scroll to top on every navigation — fixes mobile scroll bleed */}
+                    <ScrollToTop />
 
                     {/* ✅ PARTICLES — RENDER ONCE GLOBALLY */}
                     <ParticlesBackground />

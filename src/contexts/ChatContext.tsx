@@ -3,6 +3,7 @@ import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 import { api } from "@/utils/api";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface ChatContextValue {
   socket: Socket | null;
@@ -14,6 +15,7 @@ const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 
 export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
@@ -41,22 +43,22 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // Listen for new messages globally for badge updates
     newSocket.on("new_message", (msg) => {
       // Only show notification if we are NOT the sender
-      // Only show notification if we are NOT the sender
       if (msg.sender !== user?._id) {
         const currentPath = window.location.pathname;
         const isInThisChat = currentPath === `/chat/${msg.conversationId}`;
-        
+
         if (!isInThisChat) {
           setUnreadMessagesCount(prev => prev + 1);
         }
-        
+
         // Show toast ONLY if we're not currently on the chats page AND not in this specific chat
         if (currentPath !== "/chats" && !isInThisChat) {
           toast("New message received!", {
             description: msg.text.substring(0, 30) + (msg.text.length > 30 ? "..." : ""),
             action: {
               label: "View",
-              onClick: () => window.location.href = `/chat/${msg.conversationId}`
+              // FIX: use client-side navigate instead of hard page reload
+              onClick: () => navigate(`/chat/${msg.conversationId}`)
             }
           });
         }

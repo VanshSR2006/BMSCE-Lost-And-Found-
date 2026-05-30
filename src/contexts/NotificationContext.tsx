@@ -47,9 +47,21 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   };
 
   useEffect(() => {
-    loadNotifications();
-    window.addEventListener("storage", loadNotifications);
-    return () => window.removeEventListener("storage", loadNotifications);
+    // Only fetch if there's an active session — avoids a 401 on every guest page load
+    const token = localStorage.getItem("token");
+    if (token) loadNotifications();
+
+    // Reload when auth state changes (login / logout dispatches a storage event)
+    const handleStorage = () => {
+      const t = localStorage.getItem("token");
+      if (t) {
+        loadNotifications();
+      } else {
+        setNotifications([]);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   return (

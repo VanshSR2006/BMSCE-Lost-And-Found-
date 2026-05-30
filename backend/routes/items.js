@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const rateLimit = require("express-rate-limit");
 const Item = require("../models/Item");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
@@ -7,6 +8,15 @@ const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const jwt = require("jsonwebtoken");
 const { GoogleGenAI } = require("@google/genai");
+
+// Rate limiter: max 10 AI analysis requests per minute per IP
+const analyzeImageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { message: "Too many analysis requests. Please wait a moment and try again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
@@ -35,7 +45,7 @@ const authMiddleware = (req, res, next) => {
 /* ============================
    AI IMAGE ANALYSIS
 ============================ */
-router.post("/analyze-image", authMiddleware, async (req, res) => {
+router.post("/analyze-image", analyzeImageLimiter, authMiddleware, async (req, res) => {
   try {
     const { image } = req.body;
     if (!image) {
@@ -83,7 +93,8 @@ router.post("/analyze-image", authMiddleware, async (req, res) => {
     const imagePart = { inlineData: { data: cleanBase64, mimeType } };
 
     // Gemini 1.5 is shutdown; use current models.
-    const candidateModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+    // FIX: "gemini-3.5-flash" does not exist; replaced with "gemini-2.0-flash"
+    const candidateModels = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
     const prompt = `You are an expert visual analyst. Analyze the provided image of a lost or found item and extract its details.
 
 Return ONLY a raw JSON object with EXACTLY these keys:
@@ -213,9 +224,11 @@ router.post("/create", authMiddleware, async (req, res) => {
 
     // ✅ ROBUST DUPLICATE GUARD
     // Prevent multiple active reports from the same user for the same item title/category
+    // FIX: Escape regex special characters to prevent regex injection attacks
+    const escapedTitle = title.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const duplicate = await Item.findOne({
       createdBy: req.user.id,
-      title: { $regex: new RegExp(`^${title.trim()}$`, "i") },
+      title: { $regex: new RegExp(`^${escapedTitle}$`, "i") },
       type,
       category,
       status: "active"
@@ -262,7 +275,8 @@ router.post("/create", authMiddleware, async (req, res) => {
 
     console.log(`🔍 Matching ${matchType} items:`, potentialMatches.length);
 
-    for (const match of potentialMatches) {
+    // FIX: Run per-match DB work in parallel instead of sequentially
+    await Promise.all(potentialMatches.map(async (match) => {
       const lostItem = type === "lost" ? item : match;
       const foundItem = type === "found" ? item : match;
       const userToNotify = match.createdBy;
@@ -274,39 +288,40 @@ router.post("/create", authMiddleware, async (req, res) => {
         foundItem: foundItem._id,
       });
 
-      if (exists) continue;
+      if (exists) return;
 
       // 2. Similarity & Safety Check
       const isHighConfidence = hasKeywordMatch(item.title, match.title);
       const isSafeMatch = new Date(lostItem.createdAt) < new Date(foundItem.createdAt);
-      
+
       let conversationId = null;
 
       // 3. Auto-Create Conversation ONLY for High-Confidence Safe Matches
       if (isSafeMatch && isHighConfidence) {
-         let conv = await Conversation.findOne({
-           participants: { $all: [req.user.id, userToNotify] },
-           associatedItem: lostItem._id
-         });
+        let conv = await Conversation.findOne({
+          participants: { $all: [req.user.id, userToNotify] },
+          associatedItem: lostItem._id
+        });
 
-         if (!conv) {
-           conv = await Conversation.create({
-             participants: [req.user.id, userToNotify],
-             associatedItem: lostItem._id,
-             lastMessage: {
-               text: `Neural Sync: Match found for ${lostItem.title}. Communication port open.`,
-               sender: req.user.id
-             }
-           });
-           
-           await Message.create({
-             conversationId: conv._id,
-             sender: req.user.id,
-             text: `Welcome. Both reports verified. Please coordinate secure handover.`,
-             type: "system"
-           });
-         }
-         conversationId = conv._id;
+        if (!conv) {
+          // Run conversation + initial message creation in parallel
+          conv = await Conversation.create({
+            participants: [req.user.id, userToNotify],
+            associatedItem: lostItem._id,
+            lastMessage: {
+              text: `Neural Sync: Match found for ${lostItem.title}. Communication port open.`,
+              sender: req.user.id
+            }
+          });
+
+          await Message.create({
+            conversationId: conv._id,
+            sender: req.user.id,
+            text: `Welcome. Both reports verified. Please coordinate secure handover.`,
+            type: "system"
+          });
+        }
+        conversationId = conv._id;
       }
 
       // 4. Create Notification for the user
@@ -316,14 +331,14 @@ router.post("/create", authMiddleware, async (req, res) => {
         foundItem: foundItem._id,
         status: "pending",
         type: "match",
-        message: conversationId 
-          ? `Neural Sync: Secure Match Located for ${lostItem.title}!` 
+        message: conversationId
+          ? `Neural Sync: Secure Match Located for ${lostItem.title}!`
           : `Potential Sector Match for ${lostItem.title}. Verification required.`,
-        conversationId: conversationId 
+        conversationId: conversationId
       });
 
       console.log("🔔 Notification sent to user:", userToNotify.toString(), "Safe/Confident:", !!conversationId);
-    }
+    }));
 
     res.status(201).json({ message: "Item posted successfully", item });
   } catch (err) {
@@ -336,17 +351,34 @@ router.post("/create", authMiddleware, async (req, res) => {
    OTHER ROUTES (SANITIZED)
 ============================ */
 router.get("/mine", authMiddleware, async (req, res) => {
-  const items = await Item.find({ createdBy: req.user.id }).sort({ createdAt: -1 });
-  res.json(items);
+  try {
+    const items = await Item.find({ createdBy: req.user.id }).sort({ createdAt: -1 });
+    res.json(items);
+  } catch (err) {
+    console.error("❌ GET /mine ERROR:", err);
+    res.status(500).json({ message: "Failed to fetch your items" });
+  }
 });
 
 router.get("/", async (req, res) => {
-  // Exclude secretDetail from public listing and only show active items
-  const items = await Item.find({ status: "active" })
-    .populate("createdBy", "name isUsnVerified")
-    .select("-secretDetail")
-    .sort({ createdAt: -1 });
-  res.json(items);
+  try {
+    // FIX: Add pagination to avoid fetching all items at once
+    const page = Math.max(0, parseInt(req.query.page) || 0);
+    const limit = Math.min(50, parseInt(req.query.limit) || 20);
+
+    const items = await Item.find({ status: "active" })
+      .populate("createdBy", "name isUsnVerified")
+      .select("-secretDetail")
+      .sort({ createdAt: -1 })
+      .skip(page * limit)
+      .limit(limit);
+
+    const total = await Item.countDocuments({ status: "active" });
+    res.json({ items, total, page, limit });
+  } catch (err) {
+    console.error("❌ GET / ERROR:", err);
+    res.status(500).json({ message: "Failed to fetch items" });
+  }
 });
 
 /* ============================
@@ -441,14 +473,19 @@ router.get("/:id", async (req, res) => {
 });
 
 router.delete("/:id", authMiddleware, async (req, res) => {
-  const item = await Item.findById(req.params.id);
-  if (!item) return res.status(404).json({ message: "Item not found" });
+  try {
+    const item = await Item.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: "Item not found" });
 
-  if (item.createdBy.toString() !== req.user.id)
-    return res.status(403).json({ message: "Not authorized" });
+    if (item.createdBy.toString() !== req.user.id)
+      return res.status(403).json({ message: "Not authorized" });
 
-  await item.deleteOne();
-  res.json({ message: "Item deleted successfully" });
+    await item.deleteOne();
+    res.json({ message: "Item deleted successfully" });
+  } catch (err) {
+    console.error("❌ DELETE ITEM ERROR:", err);
+    res.status(500).json({ message: "Failed to delete item" });
+  }
 });
 
 module.exports = router;

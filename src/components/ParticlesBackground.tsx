@@ -11,6 +11,7 @@ const ParticlesBackground = () => {
     if (!ctx) return;
 
     let animationFrame: number;
+    let paused = false;
 
     const particles: {
       x: number;
@@ -21,20 +22,29 @@ const ParticlesBackground = () => {
 
     const mouse = { x: -9999, y: -9999 };
 
+    // Fewer particles on mobile — keeps 60fps on low-end devices
+    const isMobile = window.innerWidth < 768;
+    const count = isMobile ? 14 : 28;
+
+    let resizeScheduled = false;
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (resizeScheduled) return;
+      resizeScheduled = true;
+      requestAnimationFrame(() => {
+        resizeScheduled = false;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      });
     };
 
     resize();
     window.addEventListener("resize", resize);
 
-    // INIT PARTICLES — subtle ambient, not distracting
-    const count = 28;
+    // INIT PARTICLES
     for (let i = 0; i < count; i++) {
       particles.push({
         x: Math.random() * window.innerWidth,
@@ -45,6 +55,11 @@ const ParticlesBackground = () => {
     }
 
     const draw = () => {
+      if (paused) {
+        animationFrame = requestAnimationFrame(draw);
+        return;
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const maxDistance = 100;
@@ -92,6 +107,12 @@ const ParticlesBackground = () => {
 
     draw();
 
+    // Pause animation when tab is hidden — saves battery on mobile
+    const handleVisibilityChange = () => {
+      paused = document.hidden;
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     const onMouseMove = (e: MouseEvent) => {
       mouse.x = e.clientX;
       mouse.y = e.clientY;
@@ -109,6 +130,7 @@ const ParticlesBackground = () => {
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseleave", onMouseLeave);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       cancelAnimationFrame(animationFrame);
     };
   }, []);

@@ -35,7 +35,8 @@ const Index = () => {
     const fetchItems = async () => {
       try {
         const res = await api.get("/items");
-        setItems(res.data);
+        // API now returns { items, total, page, limit } for pagination
+        setItems(res.data.items ?? res.data);
       } catch (err) {
         console.error(err);
       } finally {
