@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const rateLimit = require("express-rate-limit");
 const Item = require("../models/Item");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
@@ -8,18 +7,9 @@ const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const jwt = require("jsonwebtoken");
 const { GoogleGenAI } = require("@google/genai");
-
-// Rate limiter: max 10 AI analysis requests per minute per IP
-const analyzeImageLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
-  message: { message: "Too many analysis requests. Please wait a moment and try again." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+const rateLimit = require("express-rate-limit");
 
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
-
 
 /* ============================
    AUTH MIDDLEWARE
@@ -27,15 +17,12 @@ const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GE
 const authMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "No token provided" });
     }
-
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    req.user = decoded; // { id, role }
+    req.user = decoded;
     next();
   } catch {
     return res.status(401).json({ message: "Invalid token" });
@@ -43,9 +30,18 @@ const authMiddleware = (req, res, next) => {
 };
 
 /* ============================
+   RATE LIMITER FOR AI ENDPOINT
+============================ */
+const aiRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,
+  message: { message: "Too many AI requests. Please wait a moment and try again." }
+});
+
+/* ============================
    AI IMAGE ANALYSIS
 ============================ */
-router.post("/analyze-image", analyzeImageLimiter, authMiddleware, async (req, res) => {
+router.post("/analyze-image", aiRateLimiter, authMiddleware, async (req, res) => {
   try {
     const { image } = req.body;
     if (!image) {
@@ -59,7 +55,6 @@ router.post("/analyze-image", analyzeImageLimiter, authMiddleware, async (req, r
     const extractJsonObject = (text) => {
       if (!text) return null;
       const trimmed = String(text).trim();
-      // If model already returned pure JSON, parse directly.
       if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
         try {
           return JSON.parse(trimmed);
@@ -67,7 +62,6 @@ router.post("/analyze-image", analyzeImageLimiter, authMiddleware, async (req, r
           // fall through to substring extraction
         }
       }
-      // Otherwise, try to extract the first {...} block.
       const start = trimmed.indexOf("{");
       const end = trimmed.lastIndexOf("}");
       if (start >= 0 && end > start) {
@@ -81,7 +75,6 @@ router.post("/analyze-image", analyzeImageLimiter, authMiddleware, async (req, r
       return null;
     };
 
-    // Extract mime type (e.g. data:image/png;base64,... -> image/png)
     let mimeType = "image/jpeg";
     const mimeMatch = image.match(/^data:(image\/\w+);base64,/);
     if (mimeMatch) {
@@ -89,12 +82,10 @@ router.post("/analyze-image", analyzeImageLimiter, authMiddleware, async (req, r
     }
 
     const cleanBase64 = image.replace(/^data:image\/\w+;base64,/, "");
-
     const imagePart = { inlineData: { data: cleanBase64, mimeType } };
 
-    // Gemini 1.5 is shutdown; use current models.
-    // FIX: "gemini-3.5-flash" does not exist; replaced with "gemini-2.0-flash"
     const candidateModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
+
     const prompt = `You are an expert visual analyst. Analyze the provided image of a lost or found item and extract its details.
 
 Return ONLY a raw JSON object with EXACTLY these keys:
@@ -105,16 +96,13 @@ Return ONLY a raw JSON object with EXACTLY these keys:
 Do NOT include any explanatory text, markdown, or placeholders such as "Detected Title" or "Detected Description". If any field cannot be determined, leave it as an empty string.
 
 Example of correct output:
-{ "title": "Blue Hydro Flask Water Bottle", "description": "A blue, 500ml hydro flask with a silver lid, slightly scratched," "category": "bottle" }
+{ "title": "Blue Hydro Flask Water Bottle", "description": "A blue, 500ml hydro flask with a silver lid, slightly scratched", "category": "bottle" }
 
-Analyze the image and return ONLY the JSON.
-`;
+Analyze the image and return ONLY the JSON.`;
 
-
-    // NOTE: The Generative AI SDK expects "parts" (text + inlineData).
-    // Also: model availability differs by key/project. Try a small set of candidates.
     let result;
     let lastErr;
+
     for (const modelName of candidateModels) {
       try {
         result = await ai.models.generateContent({
@@ -130,32 +118,46 @@ Analyze the image and return ONLY the JSON.
         break;
       } catch (e) {
         lastErr = e;
-        // Try next model only for "model not found / not supported" type errors
         const msg = String(e?.message || "");
         const status = e?.status || e?.code;
+
+        // Stop immediately on quota errors — no point trying other models
+        if (status === 429 || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
+          break;
+        }
+
+        // Try next model only for model-not-found errors
         const isModelError =
           status === 404 ||
           msg.includes("is not found") ||
           msg.includes("not supported for generateContent") ||
           msg.includes("models/");
+
         if (!isModelError) break;
       }
     }
 
     if (!result) {
       console.error("❌ AI Analysis Error (no model succeeded):", lastErr);
-      // Detect permission related errors
       const errMsg = String(lastErr?.message || "");
       const statusCode = lastErr?.status || lastErr?.code;
-      if (statusCode === 403 || errMsg.toLowerCase().includes("permission")) {
-        return res.status(403).json({
-          message:
-            "AI service unavailable: provided GEMINI_API_KEY lacks required permissions. Please verify your API key.",
+
+      // Quota exceeded
+      if (statusCode === 429 || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {
+        return res.status(429).json({
+          message: "AI quota exceeded for today. Please fill in the fields manually or try again tomorrow."
         });
       }
+
+      // Permission error
+      if (statusCode === 403 || errMsg.toLowerCase().includes("permission")) {
+        return res.status(403).json({
+          message: "AI service unavailable: API key lacks required permissions. Please verify your API key."
+        });
+      }
+
       return res.status(500).json({
-        message:
-          "AI model unavailable on this server key. Please try again later or fill fields manually.",
+        message: "AI model unavailable. Please fill in the fields manually or try again later."
       });
     }
 
@@ -165,83 +167,70 @@ Analyze the image and return ONLY the JSON.
         : typeof result?.text === "function"
           ? result.text()
           : "";
-    console.log('🤖 Gemini raw response:', responseText);
+
+    console.log("🤖 Gemini raw response:", responseText);
     const parsedData = extractJsonObject(responseText);
+
     if (!parsedData || typeof parsedData !== "object") {
-      return res.status(500).json({ message: "AI returned invalid JSON. Please try again or fill fields manually." });
+      return res.status(500).json({ message: "AI returned invalid data. Please fill in the fields manually." });
     }
 
-    // Normalize & validate output shape
     const safe = {
       title: typeof parsedData.title === "string" ? parsedData.title.trim() : "",
       description: typeof parsedData.description === "string" ? parsedData.description.trim() : "",
       category: typeof parsedData.category === "string" ? parsedData.category.trim() : "",
     };
 
-    // Strict category normalization
     const allowed = new Set(["wallet", "id-card", "bottle", "stationery", "electronics", "other"]);
     if (safe.category) {
       const c = safe.category.toLowerCase();
       safe.category = allowed.has(c) ? c : "";
     }
 
-    // Detect placeholder values
-    if (safe.title && safe.title.toLowerCase().includes('detected')) {
-      console.warn('⚠️ Placeholder title detected, rejecting response');
-      return res.status(500).json({ message: 'AI could not extract real data. Please try another photo or fill manually.' });
+    if (safe.title && safe.title.toLowerCase().includes("detected")) {
+      return res.status(500).json({ message: "AI could not extract real data. Please try another photo or fill in manually." });
     }
-    if (safe.description && safe.description.toLowerCase().includes('detected')) {
-      console.warn('⚠️ Placeholder description detected, rejecting response');
-      return res.status(500).json({ message: 'AI could not extract real data. Please try another photo or fill manually.' });
+    if (safe.description && safe.description.toLowerCase().includes("detected")) {
+      return res.status(500).json({ message: "AI could not extract real data. Please try another photo or fill in manually." });
     }
+
     res.json(safe);
 
   } catch (err) {
     console.error("❌ AI Analysis Error:", err);
-    res.status(500).json({ message: "AI analysis failed. Please fill the fields manually." });
+    res.status(500).json({ message: "AI analysis failed. Please fill in the fields manually." });
   }
 });
 
 /* ============================
-   CREATE ITEM + AUTO MATCH ✅
+   CREATE ITEM + AUTO MATCH
 ============================ */
 router.post("/create", authMiddleware, async (req, res) => {
   try {
-    const {
-      type,
-      title,
-      description,
-      location,
-      date,
-      image,
-      thumbnail,
-      category,
-    } = req.body;
+    const { type, title, description, location, date, image, thumbnail, category } = req.body;
 
     if (!type || !title || !description || !location || !date || !category) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // ✅ ROBUST DUPLICATE GUARD
-    // Prevent multiple active reports from the same user for the same item title/category
-    // FIX: Escape regex special characters to prevent regex injection attacks
-    const escapedTitle = title.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Escape special regex characters to prevent injection
+    const escaped = title.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
     const duplicate = await Item.findOne({
       createdBy: req.user.id,
-      title: { $regex: new RegExp(`^${escapedTitle}$`, "i") },
+      title: { $regex: new RegExp(`^${escaped}$`, "i") },
       type,
       category,
       status: "active"
     });
 
     if (duplicate) {
-      console.log("🚫 ROBUST DUPLICATE PREVENTED:", title, "by user:", req.user.id);
-      return res.status(409).json({ 
-        message: `Protocol Overlap: You already have an active ${type} report for "${title}". Please manage existing entries in your dossier.` 
+      console.log("🚫 DUPLICATE PREVENTED:", title, "by user:", req.user.id);
+      return res.status(409).json({
+        message: `Protocol Overlap: You already have an active ${type} report for "${title}". Please manage existing entries in your dossier.`
       });
     }
 
-    // ✅ Create item
     const item = await Item.create({
       type,
       title,
@@ -257,9 +246,6 @@ router.post("/create", authMiddleware, async (req, res) => {
 
     console.log("✅ ITEM CREATED:", item.type, item.category);
 
-    /* ============================
-       BIDIRECTIONAL AUTO MATCHING
-    ============================ */
     const matchType = type === "found" ? "lost" : "found";
     const potentialMatches = await Item.find({
       type: matchType,
@@ -268,35 +254,32 @@ router.post("/create", authMiddleware, async (req, res) => {
     });
 
     const hasKeywordMatch = (str1, str2) => {
-      const words1 = str1.toLowerCase().split(/\W+/).filter(w => w.length > 2);
-      const words2 = str2.toLowerCase().split(/\W+/).filter(w => w.length > 2);
+      const stopwords = new Set(["the", "a", "an", "my", "its", "is", "in", "on", "at", "to", "and", "or", "of"]);
+      const words1 = str1.toLowerCase().split(/\W+/).filter(w => w.length > 2 && !stopwords.has(w));
+      const words2 = str2.toLowerCase().split(/\W+/).filter(w => w.length > 2 && !stopwords.has(w));
       return words1.some(word => words2.includes(word));
     };
 
     console.log(`🔍 Matching ${matchType} items:`, potentialMatches.length);
 
-    // FIX: Run per-match DB work in parallel instead of sequentially
-    await Promise.all(potentialMatches.map(async (match) => {
+    for (const match of potentialMatches) {
       const lostItem = type === "lost" ? item : match;
       const foundItem = type === "found" ? item : match;
       const userToNotify = match.createdBy;
 
-      // 1. Check for Duplicate Notifications for the match
       const exists = await Notification.findOne({
         user: userToNotify,
         lostItem: lostItem._id,
         foundItem: foundItem._id,
       });
 
-      if (exists) return;
+      if (exists) continue;
 
-      // 2. Similarity & Safety Check
       const isHighConfidence = hasKeywordMatch(item.title, match.title);
       const isSafeMatch = new Date(lostItem.createdAt) < new Date(foundItem.createdAt);
 
       let conversationId = null;
 
-      // 3. Auto-Create Conversation ONLY for High-Confidence Safe Matches
       if (isSafeMatch && isHighConfidence) {
         let conv = await Conversation.findOne({
           participants: { $all: [req.user.id, userToNotify] },
@@ -304,7 +287,6 @@ router.post("/create", authMiddleware, async (req, res) => {
         });
 
         if (!conv) {
-          // Run conversation + initial message creation in parallel
           conv = await Conversation.create({
             participants: [req.user.id, userToNotify],
             associatedItem: lostItem._id,
@@ -324,7 +306,6 @@ router.post("/create", authMiddleware, async (req, res) => {
         conversationId = conv._id;
       }
 
-      // 4. Create Notification for the user
       await Notification.create({
         user: userToNotify,
         lostItem: lostItem._id,
@@ -338,9 +319,10 @@ router.post("/create", authMiddleware, async (req, res) => {
       });
 
       console.log("🔔 Notification sent to user:", userToNotify.toString(), "Safe/Confident:", !!conversationId);
-    }));
+    }
 
     res.status(201).json({ message: "Item posted successfully", item });
+
   } catch (err) {
     console.error("❌ CREATE ITEM ERROR:", err);
     res.status(500).json({ message: "Failed to create item" });
@@ -348,23 +330,25 @@ router.post("/create", authMiddleware, async (req, res) => {
 });
 
 /* ============================
-   OTHER ROUTES (SANITIZED)
+   GET MY ITEMS
 ============================ */
 router.get("/mine", authMiddleware, async (req, res) => {
   try {
     const items = await Item.find({ createdBy: req.user.id }).sort({ createdAt: -1 });
     res.json(items);
   } catch (err) {
-    console.error("❌ GET /mine ERROR:", err);
+    console.error("❌ GET MINE ERROR:", err);
     res.status(500).json({ message: "Failed to fetch your items" });
   }
 });
 
+/* ============================
+   GET ALL ITEMS (PAGINATED)
+============================ */
 router.get("/", async (req, res) => {
   try {
-    // FIX: Add pagination to avoid fetching all items at once
-    const page = Math.max(0, parseInt(req.query.page) || 0);
-    const limit = Math.min(50, parseInt(req.query.limit) || 20);
+    const page = parseInt(req.query.page) || 0;
+    const limit = parseInt(req.query.limit) || 20;
 
     const items = await Item.find({ status: "active" })
       .populate("createdBy", "name isUsnVerified")
@@ -373,10 +357,9 @@ router.get("/", async (req, res) => {
       .skip(page * limit)
       .limit(limit);
 
-    const total = await Item.countDocuments({ status: "active" });
-    res.json({ items, total, page, limit });
+    res.json(items);
   } catch (err) {
-    console.error("❌ GET / ERROR:", err);
+    console.error("❌ GET ITEMS ERROR:", err);
     res.status(500).json({ message: "Failed to fetch items" });
   }
 });
@@ -394,12 +377,10 @@ router.post("/:id/request-handover", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Found item not found" });
     }
 
-    // Security: Requester must own the lost item
     if (!lostItem || lostItem.createdBy.toString() !== req.user.id) {
       return res.status(403).json({ message: "You must link an active lost report of your own." });
     }
 
-    // Create Notification for the Founder
     await Notification.create({
       user: foundItem.createdBy,
       lostItem: lostItem._id,
@@ -413,21 +394,21 @@ router.post("/:id/request-handover", authMiddleware, async (req, res) => {
 
     res.json({ message: "Claim request submitted securely." });
   } catch (err) {
+    console.error("❌ HANDOVER ERROR:", err);
     res.status(500).json({ message: "Failed to submit request" });
   }
 });
 
 /* ============================
-   CLAIM ITEM (SECURE HANDOVER)
+   CLAIM ITEM
 ============================ */
 router.put("/:id/claim", authMiddleware, async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
     if (!item) return res.status(404).json({ message: "Item not found" });
 
-    // Only owner can close/claim their own found item now
     if (item.createdBy.toString() !== req.user.id) {
-      return res.status(403).json({ message: "You can only close your own reports. Handover is handled via secure chat." });
+      return res.status(403).json({ message: "You can only close your own reports." });
     }
 
     await item.deleteOne();
@@ -439,11 +420,14 @@ router.put("/:id/claim", authMiddleware, async (req, res) => {
   }
 });
 
+/* ============================
+   GET ITEM BY ID
+============================ */
 router.get("/:id", async (req, res) => {
   try {
     const item = await Item.findById(req.params.id).populate("createdBy", "name isUsnVerified");
     if (!item) return res.status(404).json({ message: "Item not found" });
-    
+
     let isOwner = false;
     let isAdmin = false;
 
@@ -455,16 +439,16 @@ router.get("/:id", async (req, res) => {
         const creatorId = item.createdBy._id || item.createdBy;
         isOwner = decoded.id === creatorId.toString();
         isAdmin = decoded.role === "admin";
-      } catch (err) {
-        // Invalid token is ignored, proceed as guest
+      } catch {
+        // Invalid token ignored, proceed as guest
       }
     }
-    
+
     const itemData = item.toObject();
     if (!isOwner && !isAdmin) {
       delete itemData.secretDetail;
     }
-    
+
     res.json(itemData);
   } catch (err) {
     console.error("❌ GET ITEM ERROR:", err);
@@ -472,6 +456,9 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+/* ============================
+   DELETE ITEM
+============================ */
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
@@ -483,7 +470,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     await item.deleteOne();
     res.json({ message: "Item deleted successfully" });
   } catch (err) {
-    console.error("❌ DELETE ITEM ERROR:", err);
+    console.error("❌ DELETE ERROR:", err);
     res.status(500).json({ message: "Failed to delete item" });
   }
 });
