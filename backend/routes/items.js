@@ -44,6 +44,9 @@ const aiRateLimiter = rateLimit({
 /* ============================
    AI IMAGE ANALYSIS
 ============================ */
+/* ============================
+   AI IMAGE ANALYSIS
+============================ */
 router.post("/analyze-image", aiRateLimiter, authMiddleware, async (req, res) => {
   try {
     const { image } = req.body;
@@ -51,7 +54,8 @@ router.post("/analyze-image", aiRateLimiter, authMiddleware, async (req, res) =>
       return res.status(400).json({ message: "No image provided for analysis." });
     }
 
-    if (!ai && !groq) {
+    // Dynamic verification to ensure variables are actively pulled from Render's runtime env
+    if (!ai && !process.env.GROQ_API_KEY) {
       return res.status(500).json({ message: "AI Analysis service is not configured on this server." });
     }
 
@@ -126,20 +130,30 @@ Analyze the image and return ONLY the JSON.`;
             break;
           } catch (e) {
             lastErr = e;
-            const msg = String(e?.message || "");
-            const status = e?.status || e?.code;
+            const msg = String(e?.message || "").toUpperCase();
+            const status = e?.status || e?.code || (e?.statusText ? 429 : null);
 
-            // Stop immediately on quota errors to fall back to Groq
-            if (status === 429 || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
+            console.warn(`⚠️ Gemini model ${modelName} encountered an error:`, msg);
+
+            // Comprehensive check catching standard daily limits & quota blockages
+            if (
+              status === 429 ||
+              status === 403 ||
+              msg.includes("QUOTA") ||
+              msg.includes("EXHAUSTED") ||
+              msg.includes("LIMIT_EXCEEDED") ||
+              msg.includes("429")
+            ) {
+              console.log("🚨 Gemini Quota hit! Breaking loop to trigger Groq fallback immediately.");
               break;
             }
 
-            // Try next model only for model-not-found errors
+            // Fallback iteration condition for missing or unsupported region models
             const isModelError =
               status === 404 ||
-              msg.includes("is not found") ||
-              msg.includes("not supported for generateContent") ||
-              msg.includes("models/");
+              msg.includes("NOT FOUND") ||
+              msg.includes("NOT SUPPORTED") ||
+              msg.includes("MODELS/");
 
             if (!isModelError) break;
           }
@@ -154,18 +168,17 @@ Analyze the image and return ONLY the JSON.`;
                 : "";
           console.log("🤖 Gemini raw response:", responseText);
         } else {
-          // No result — force fallback to Groq
           usedGroq = true;
         }
       } catch (geminiError) {
-        console.warn("⚠️ Gemini failed, attempting Groq fallback...", geminiError.message || geminiError);
+        console.warn("⚠️ Gemini execution failed completely, jumping to Groq...", geminiError.message || geminiError);
         usedGroq = true;
       }
 
-      // If Groq is not configured and Gemini failed, return appropriate error
-      if (usedGroq && !groq) {
+      // Check if fallback execution is forced but Groq variables are completely absent
+      if (usedGroq && !process.env.GROQ_API_KEY) {
         return res.status(503).json({
-          message: "AI quota exceeded and no fallback available. Please fill in the fields manually or try again tomorrow."
+          message: "Gemini daily limit exhausted and Groq fallback is not configured on Render environment settings."
         });
       }
     } else {
@@ -173,18 +186,22 @@ Analyze the image and return ONLY the JSON.`;
     }
 
     if (usedGroq) {
+      // Valid structural models hosted on Groq's cloud infrastructure
       const groqModels = [
-        "meta-llama/llama-4-scout-17b-16e-instruct",
         "llama-3.2-11b-vision-preview",
         "llama-3.2-90b-vision-preview"
       ];
       let groqResponse;
       let groqErr;
 
+      // Safe inline initialization protecting backend against early null definition crashes
+      const Groq = require("groq-sdk");
+      const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
       for (const model of groqModels) {
         try {
           console.log(`⚡ Calling Groq API with model: ${model}...`);
-          groqResponse = await groq.chat.completions.create({
+          groqResponse = await groqClient.chat.completions.create({
             model: model,
             messages: [
               {
@@ -206,7 +223,7 @@ Analyze the image and return ONLY the JSON.`;
           break;
         } catch (err) {
           groqErr = err;
-          console.warn(`⚠️ Groq model ${model} failed, trying next...`, err.message || err);
+          console.warn(`⚠️ Groq model ${model} failed, trying next option...`, err.message || err);
         }
       }
 
@@ -224,7 +241,7 @@ Analyze the image and return ONLY the JSON.`;
     const parsedData = extractJsonObject(responseText);
 
     if (!parsedData || typeof parsedData !== "object") {
-      return res.status(500).json({ message: "AI returned invalid data. Please fill in the fields manually." });
+      return res.status(500).json({ message: "AI returned invalid data structures. Please fill in the fields manually." });
     }
 
     const safe = {
@@ -250,8 +267,8 @@ Analyze the image and return ONLY the JSON.`;
     res.json(safe);
 
   } catch (err) {
-    console.error("❌ AI Analysis Error:", err);
-    res.status(500).json({ message: "AI analysis failed. Please fill in the fields manually." });
+    console.error("❌ AI Analysis Critical Error:", err);
+    res.status(500).json({ message: "AI analysis failed completely. Please fill in the fields manually." });
   }
 });
 

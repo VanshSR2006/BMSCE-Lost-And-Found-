@@ -4,7 +4,7 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
-require("dotenv").config();
+require("dotenv").config(); // Injects variables directly on launch process
 
 /* =====================
    MODELS (Required for Socket Logic)
@@ -28,7 +28,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Adjust for production
+    origin: "*", // Adjust for production environments safely
     methods: ["GET", "POST"]
   }
 });
@@ -75,7 +75,7 @@ io.on("connection", (socket) => {
 
   socket.on("send_message", async (data) => {
     const { conversationId, text } = data;
-    
+
     try {
       const message = await Message.create({
         conversationId,
@@ -83,12 +83,9 @@ io.on("connection", (socket) => {
         text
       });
 
-      // Find conversation to identify recipients
       const conversation = await Conversation.findById(conversationId);
       if (!conversation) return;
 
-      // Update redundant lastMessage in conversation for quick list view
-      // Increment unreadCount for all participants EXCEPT the sender
       const updateObj = {
         lastMessage: {
           text,
@@ -97,7 +94,6 @@ io.on("connection", (socket) => {
         }
       };
 
-      // Optimization: Only increment unread count for users NOT in the room
       const socketsInRoom = await io.in(conversationId).fetchSockets();
       const activeUserIds = socketsInRoom.map(s => s.user.id.toString());
 
