@@ -6,6 +6,22 @@ const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 require("dotenv").config(); // Injects variables directly on launch process
 
+// ---- startup diagnostics (helps on Render) ----
+const GEMINI_API_KEY =
+  process.env.GEMINI_API_KEY ||
+  process.env.VITE_GEMINI_API_KEY ||
+  process.env.GEMINI_KEY ||
+  "";
+const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || "";
+const RENDER_COMMIT =
+  process.env.RENDER_GIT_COMMIT ||
+  process.env.RENDER_COMMIT ||
+  process.env.GIT_COMMIT ||
+  "";
+console.log(
+  `[Startup] commit=${RENDER_COMMIT || "unknown"} GEMINI=${!!GEMINI_API_KEY} GROQ=${!!GROQ_API_KEY}`
+);
+
 /* =====================
    MODELS (Required for Socket Logic)
 ===================== */
@@ -39,6 +55,16 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// Simple health endpoint to verify what Render is running
+app.get("/health", (req, res) => {
+  res.json({
+    ok: true,
+    commit: RENDER_COMMIT || null,
+    geminiConfigured: !!GEMINI_API_KEY,
+    groqConfigured: !!GROQ_API_KEY,
+  });
+});
 
 /* =====================
    ROUTES REGISTRATION
