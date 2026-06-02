@@ -153,29 +153,19 @@ Analyze the image and return ONLY the JSON.`;
                 : "";
           console.log("🤖 Gemini raw response:", responseText);
         } else {
-          throw lastErr || new Error("All Gemini models failed.");
+          // No result — force fallback to Groq
+          usedGroq = true;
         }
       } catch (geminiError) {
-        console.warn("⚠️ Gemini AI failed/quota exhausted, attempting Groq fallback...", geminiError.message || geminiError);
-        if (!groq) {
-          const errMsg = String(geminiError?.message || "");
-          const statusCode = geminiError?.status || geminiError?.code;
-
-          if (statusCode === 429 || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {
-            return res.status(429).json({
-              message: "AI quota exceeded for today. Please fill in the fields manually or try again tomorrow."
-            });
-          }
-          if (statusCode === 403 || errMsg.toLowerCase().includes("permission")) {
-            return res.status(403).json({
-              message: "AI service unavailable: API key lacks required permissions. Please verify your API key."
-            });
-          }
-          return res.status(500).json({
-            message: "AI model unavailable. Please fill in the fields manually or try again later."
-          });
-        }
+        console.warn("⚠️ Gemini failed, attempting Groq fallback...", geminiError.message || geminiError);
         usedGroq = true;
+      }
+
+      // If Groq is not configured and Gemini failed, return appropriate error
+      if (usedGroq && !groq) {
+        return res.status(503).json({
+          message: "AI quota exceeded and no fallback available. Please fill in the fields manually or try again tomorrow."
+        });
       }
     } else {
       usedGroq = true;
