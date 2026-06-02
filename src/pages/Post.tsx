@@ -47,6 +47,7 @@ const Post = () => {
   const [isCompressing, setIsCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiProvider, setAiProvider] = useState<"gemini" | "groq">("gemini");
 
   // Sync contact info when user state is loaded asynchronously
   useEffect(() => {
@@ -67,13 +68,16 @@ const Post = () => {
         image: base64Image
       });
       const data = response.data;
+      if (data.provider) {
+        setAiProvider(data.provider);
+      }
       setFormData((prev) => ({
         ...prev,
         title: data.title || "",
         description: data.description || "",
         category: data.category || "",
       }));
-      toast.success("AI scan complete! Details populated.");
+      toast.success(`${data.provider === "groq" ? "Groq" : "Gemini"} scan complete! Details populated.`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || "AI scanner failed. Please input manually.");
     } finally {
@@ -323,7 +327,9 @@ const Post = () => {
                       
                       <div className="bg-teal-500/5 border border-teal-500/20 rounded-2xl p-4 flex items-center gap-3">
                         <Sparkles className="text-teal-400 h-5 w-5 flex-shrink-0 animate-pulse" />
-                        <span className="text-xs text-teal-300/80 font-semibold">Gemini Scanner successfully populated the parameters below. Please verify and refine.</span>
+                        <span className="text-xs text-teal-300/80 font-semibold">
+                          {aiProvider === "groq" ? "Groq AI" : "Gemini"} Scanner successfully populated the parameters below. Please verify and refine.
+                        </span>
                       </div>
 
                       {/* TITLE */}

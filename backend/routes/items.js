@@ -8,8 +8,10 @@ const Message = require("../models/Message");
 const jwt = require("jsonwebtoken");
 const { GoogleGenAI } = require("@google/genai");
 const rateLimit = require("express-rate-limit");
+const Groq = require("groq-sdk");
 
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 /* ============================
    AUTH MIDDLEWARE
@@ -48,7 +50,7 @@ router.post("/analyze-image", aiRateLimiter, authMiddleware, async (req, res) =>
       return res.status(400).json({ message: "No image provided for analysis." });
     }
 
-    if (!ai) {
+    if (!ai && !groq) {
       return res.status(500).json({ message: "AI Analysis service is not configured on this server." });
     }
 
@@ -100,75 +102,134 @@ Example of correct output:
 
 Analyze the image and return ONLY the JSON.`;
 
-    let result;
-    let lastErr;
+    let responseText = "";
+    let usedGroq = false;
 
-    for (const modelName of candidateModels) {
+    if (ai) {
       try {
-        result = await ai.models.generateContent({
-          model: modelName,
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }, imagePart],
-            },
-          ],
-        });
-        lastErr = null;
-        break;
-      } catch (e) {
-        lastErr = e;
-        const msg = String(e?.message || "");
-        const status = e?.status || e?.code;
+        let result;
+        let lastErr;
 
-        // Stop immediately on quota errors — no point trying other models
-        if (status === 429 || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
-          break;
+        for (const modelName of candidateModels) {
+          try {
+            result = await ai.models.generateContent({
+              model: modelName,
+              contents: [
+                {
+                  role: "user",
+                  parts: [{ text: prompt }, imagePart],
+                },
+              ],
+            });
+            lastErr = null;
+            break;
+          } catch (e) {
+            lastErr = e;
+            const msg = String(e?.message || "");
+            const status = e?.status || e?.code;
+
+            // Stop immediately on quota errors to fall back to Groq
+            if (status === 429 || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
+              break;
+            }
+
+            // Try next model only for model-not-found errors
+            const isModelError =
+              status === 404 ||
+              msg.includes("is not found") ||
+              msg.includes("not supported for generateContent") ||
+              msg.includes("models/");
+
+            if (!isModelError) break;
+          }
         }
 
-        // Try next model only for model-not-found errors
-        const isModelError =
-          status === 404 ||
-          msg.includes("is not found") ||
-          msg.includes("not supported for generateContent") ||
-          msg.includes("models/");
+        if (result) {
+          responseText =
+            typeof result?.text === "string"
+              ? result.text
+              : typeof result?.text === "function"
+                ? result.text()
+                : "";
+          console.log("🤖 Gemini raw response:", responseText);
+        } else {
+          throw lastErr || new Error("All Gemini models failed.");
+        }
+      } catch (geminiError) {
+        console.warn("⚠️ Gemini AI failed/quota exhausted, attempting Groq fallback...", geminiError.message || geminiError);
+        if (!groq) {
+          const errMsg = String(geminiError?.message || "");
+          const statusCode = geminiError?.status || geminiError?.code;
 
-        if (!isModelError) break;
+          if (statusCode === 429 || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {
+            return res.status(429).json({
+              message: "AI quota exceeded for today. Please fill in the fields manually or try again tomorrow."
+            });
+          }
+          if (statusCode === 403 || errMsg.toLowerCase().includes("permission")) {
+            return res.status(403).json({
+              message: "AI service unavailable: API key lacks required permissions. Please verify your API key."
+            });
+          }
+          return res.status(500).json({
+            message: "AI model unavailable. Please fill in the fields manually or try again later."
+          });
+        }
+        usedGroq = true;
+      }
+    } else {
+      usedGroq = true;
+    }
+
+    if (usedGroq) {
+      const groqModels = [
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        "llama-3.2-11b-vision-preview",
+        "llama-3.2-90b-vision-preview"
+      ];
+      let groqResponse;
+      let groqErr;
+
+      for (const model of groqModels) {
+        try {
+          console.log(`⚡ Calling Groq API with model: ${model}...`);
+          groqResponse = await groq.chat.completions.create({
+            model: model,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${mimeType};base64,${cleanBase64}`,
+                    },
+                  },
+                ],
+              },
+            ],
+            response_format: { type: "json_object" }
+          });
+          groqErr = null;
+          break;
+        } catch (err) {
+          groqErr = err;
+          console.warn(`⚠️ Groq model ${model} failed, trying next...`, err.message || err);
+        }
+      }
+
+      if (groqResponse) {
+        responseText = groqResponse.choices[0].message.content;
+        console.log('🤖 Groq raw response:', responseText);
+      } else {
+        console.error("❌ Groq Fallback Error (all models failed):", groqErr);
+        return res.status(500).json({
+          message: "AI analysis failed on both Gemini and Groq. Please fill fields manually."
+        });
       }
     }
 
-    if (!result) {
-      console.error("❌ AI Analysis Error (no model succeeded):", lastErr);
-      const errMsg = String(lastErr?.message || "");
-      const statusCode = lastErr?.status || lastErr?.code;
-
-      // Quota exceeded
-      if (statusCode === 429 || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED")) {
-        return res.status(429).json({
-          message: "AI quota exceeded for today. Please fill in the fields manually or try again tomorrow."
-        });
-      }
-
-      // Permission error
-      if (statusCode === 403 || errMsg.toLowerCase().includes("permission")) {
-        return res.status(403).json({
-          message: "AI service unavailable: API key lacks required permissions. Please verify your API key."
-        });
-      }
-
-      return res.status(500).json({
-        message: "AI model unavailable. Please fill in the fields manually or try again later."
-      });
-    }
-
-    const responseText =
-      typeof result?.text === "string"
-        ? result.text
-        : typeof result?.text === "function"
-          ? result.text()
-          : "";
-
-    console.log("🤖 Gemini raw response:", responseText);
     const parsedData = extractJsonObject(responseText);
 
     if (!parsedData || typeof parsedData !== "object") {
@@ -179,6 +240,7 @@ Analyze the image and return ONLY the JSON.`;
       title: typeof parsedData.title === "string" ? parsedData.title.trim() : "",
       description: typeof parsedData.description === "string" ? parsedData.description.trim() : "",
       category: typeof parsedData.category === "string" ? parsedData.category.trim() : "",
+      provider: usedGroq ? "groq" : "gemini",
     };
 
     const allowed = new Set(["wallet", "id-card", "bottle", "stationery", "electronics", "other"]);

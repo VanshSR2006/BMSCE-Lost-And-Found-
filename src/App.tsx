@@ -77,8 +77,8 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <ThemeProvider>
           <AuthProvider>
             <NotificationProvider>
               <ChatProvider>
@@ -91,12 +91,16 @@ const App = () => {
                       {showSplash && <StartupSplash />}
                     </AnimatePresence>
 
+                    {/* GLOBAL 3D GLASSMORPHISM MULTI-VIEW BACKGROUND */}
                     <div className="fixed inset-0 min-h-screen bg-[#16052a] -z-50 overflow-hidden pointer-events-none">
                       <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] bg-purple-600/50 rounded-full blur-[80px] mix-blend-screen opacity-50"></div>
                       <div className="absolute bottom-[20%] left-[-150px] w-[400px] h-[400px] bg-teal-600/30 rounded-full blur-[80px] mix-blend-screen opacity-50"></div>
                     </div>
 
+                    {/* Scroll to top on every navigation — fixes mobile scroll bleed */}
                     <ScrollToTop />
+
+                    {/* ✅ PARTICLES — RENDER ONCE GLOBALLY */}
                     <ParticlesBackground />
 
                     <div className="relative z-0 min-h-screen flex flex-col">
@@ -104,14 +108,13 @@ const App = () => {
                         <AnimatedRoutes />
                       </Layout>
                     </div>
-
                   </TooltipProvider>
                 </ItemsProvider>
               </ChatProvider>
             </NotificationProvider>
           </AuthProvider>
-        </BrowserRouter>
-      </ThemeProvider>
+        </ThemeProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 };
