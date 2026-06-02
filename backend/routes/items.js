@@ -10,9 +10,17 @@ const { GoogleGenAI } = require("@google/genai");
 const rateLimit = require("express-rate-limit");
 const Groq = require("groq-sdk");
 
-const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
-const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
-console.log(`[AI Init] GEMINI=${!!process.env.GEMINI_API_KEY} | GROQ=${!!process.env.GROQ_API_KEY} | groq client=${!!groq}`);
+// Render env vars are injected at runtime; also tolerate common naming.
+const GEMINI_API_KEY =
+  process.env.GEMINI_API_KEY ||
+  process.env.VITE_GEMINI_API_KEY ||
+  process.env.GEMINI_KEY ||
+  "";
+const GROQ_API_KEY = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || "";
+
+const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
+const groq = GROQ_API_KEY ? new Groq({ apiKey: GROQ_API_KEY }) : null;
+console.log(`[AI Init] GEMINI=${!!GEMINI_API_KEY} | GROQ=${!!GROQ_API_KEY} | groq client=${!!groq}`);
 
 /* ============================
    AUTH MIDDLEWARE
@@ -55,7 +63,7 @@ router.post("/analyze-image", aiRateLimiter, authMiddleware, async (req, res) =>
     }
 
     // Dynamic verification to ensure variables are actively pulled from Render's runtime env
-    if (!ai && !process.env.GROQ_API_KEY) {
+    if (!ai && !GROQ_API_KEY) {
       return res.status(500).json({ message: "AI Analysis service is not configured on this server." });
     }
 
@@ -91,7 +99,8 @@ router.post("/analyze-image", aiRateLimiter, authMiddleware, async (req, res) =>
     const cleanBase64 = image.replace(/^data:image\/\w+;base64,/, "");
     const imagePart = { inlineData: { data: cleanBase64, mimeType } };
 
-    const candidateModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
+    // Gemini 1.5 is shut down; Gemini 2.0 shuts down soon; prefer 2.5+ / 3.x.
+    const candidateModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
 
     const prompt = `You are an expert visual analyst. Analyze the provided image of a lost or found item and extract its details.
 
@@ -176,7 +185,7 @@ Analyze the image and return ONLY the JSON.`;
       }
 
       // Check if fallback execution is forced but Groq variables are completely absent
-      if (usedGroq && !process.env.GROQ_API_KEY) {
+      if (usedGroq && !GROQ_API_KEY) {
         return res.status(503).json({
           message: "Gemini daily limit exhausted and Groq fallback is not configured on Render environment settings."
         });
@@ -194,14 +203,16 @@ Analyze the image and return ONLY the JSON.`;
       let groqResponse;
       let groqErr;
 
-      // Safe inline initialization protecting backend against early null definition crashes
-      const Groq = require("groq-sdk");
-      const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      if (!groq) {
+        return res.status(503).json({
+          message: "Groq fallback is not configured on this server."
+        });
+      }
 
       for (const model of groqModels) {
         try {
           console.log(`⚡ Calling Groq API with model: ${model}...`);
-          groqResponse = await groqClient.chat.completions.create({
+          groqResponse = await groq.chat.completions.create({
             model: model,
             messages: [
               {
