@@ -12,6 +12,7 @@ const Groq = require("groq-sdk");
 
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+console.log(`[AI Init] GEMINI=${!!process.env.GEMINI_API_KEY} | GROQ=${!!process.env.GROQ_API_KEY} | groq client=${!!groq}`);
 
 /* ============================
    AUTH MIDDLEWARE
