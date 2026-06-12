@@ -27,9 +27,15 @@ const authMiddleware = (req, res, next) => {
 router.put("/:id/read", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
-    await Conversation.findByIdAndUpdate(req.params.id, {
+    const conv = await Conversation.findOneAndUpdate({
+      _id: req.params.id,
+      participants: userId
+    }, {
       $set: { [`unreadCount.${userId}`]: 0 }
     });
+
+    if (!conv) return res.status(404).json({ message: "Chat not found" });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: "Failed to clear unread count" });
@@ -83,11 +89,18 @@ router.get("/:id", authMiddleware, async (req, res) => {
 router.get("/:id/messages", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
+    const conv = await Conversation.findOne({
+      _id: req.params.id,
+      participants: userId
+    });
+
+    if (!conv) return res.status(404).json({ message: "Chat not found" });
+
     const messages = await Message.find({ conversationId: req.params.id })
       .sort({ createdAt: 1 });
 
     // Clear unread count for this user when they fetch messages
-    await Conversation.findByIdAndUpdate(req.params.id, {
+    await Conversation.findByIdAndUpdate(conv._id, {
       $set: { [`unreadCount.${userId}`]: 0 }
     });
 
@@ -121,7 +134,16 @@ router.post("/initiate", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Item ownership data missing." });
     }
 
-    const otherUserId = currentUserId === lostOwner ? foundOwner : lostOwner;
+    const currentUserIdStr = currentUserId.toString();
+    if (currentUserIdStr !== lostOwner && currentUserIdStr !== foundOwner) {
+      return res.status(403).json({ message: "This match does not belong to your account." });
+    }
+
+    if (notification.lostItem.status !== "active" || notification.foundItem.status !== "active") {
+      return res.status(400).json({ message: "This match is no longer active." });
+    }
+
+    const otherUserId = currentUserIdStr === lostOwner ? foundOwner : lostOwner;
 
     // Check if conversation already exists for this pair and item
     let conv = await Conversation.findOne({
@@ -175,6 +197,9 @@ router.put("/:id/close", authMiddleware, async (req, res) => {
   try {
     const conv = await Conversation.findById(conversationId);
     if (!conv) return res.status(404).json({ message: "Chat not found" });
+
+    const isParticipant = conv.participants.some((pId) => pId.toString() === reporterId.toString());
+    if (!isParticipant) return res.status(403).json({ message: "Not authorized for this chat" });
 
     // 🛡️ Handle misconduct reporting (Sector Guard Protocol)
     if (reason === "misbehaving") {

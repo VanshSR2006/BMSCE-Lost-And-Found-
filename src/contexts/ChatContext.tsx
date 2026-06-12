@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
-import { api } from "@/utils/api";
+import { api, getBaseUrl } from "@/utils/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -30,7 +30,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const token = localStorage.getItem("token");
-    const newSocket = io(import.meta.env.VITE_API_URL || "http://localhost:5001", {
+    const newSocket = io(getBaseUrl(), {
       auth: { token }
     });
 

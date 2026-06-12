@@ -9,7 +9,8 @@ const config: CapacitorConfig = {
   // so it always points to the deployed Render backend.
   android: {
     allowMixedContent: true,
-    backgroundColor: "#16052a"
+    backgroundColor: "#16052a",
+    overrideUserAgent: "Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
   },
   plugins: {
     SplashScreen: {

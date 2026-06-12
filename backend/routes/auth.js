@@ -177,6 +177,52 @@ router.post("/google", async (req, res) => {
   }
 });
 
+// ---------------- MOCK GOOGLE SIGN IN (FOR DEMO/MOBILE BACKUP) ----------------
+router.post("/google-mock", async (req, res) => {
+  try {
+    const { email, name } = req.body;
+
+    if (!email || !email.endsWith("@bmsce.ac.in")) {
+      return res.status(400).json({ message: "Unauthorized: Use your @bmsce.ac.in email ONLY" });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      user = await User.create({
+        name: name || email.split("@")[0].replace(".", " "),
+        email,
+        password: await bcrypt.hash("mockgooglepassword" + process.env.JWT_SECRET, 10),
+        role: "user",
+      });
+    }
+
+    const serverToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      message: "Google Mock Login successful",
+      token: serverToken,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone || "",
+        usn: user.usn || "",
+        branch: user.branch || "",
+        isUsnVerified: user.isUsnVerified || false,
+      },
+    });
+  } catch (err) {
+    console.error("Google Mock error:", err);
+    res.status(500).json({ message: "Mock login failed" });
+  }
+});
+
 // ---------------- UPDATE PROFILE ----------------
 router.put("/profile", authMiddleware, async (req, res) => {
   try {

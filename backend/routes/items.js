@@ -331,6 +331,7 @@ router.post("/create", authMiddleware, async (req, res) => {
     const potentialMatches = await Item.find({
       type: matchType,
       category,
+      status: "active",
       createdBy: { $ne: req.user.id },
     });
 
@@ -460,6 +461,23 @@ router.post("/:id/request-handover", authMiddleware, async (req, res) => {
 
     if (!lostItem || lostItem.createdBy.toString() !== req.user.id) {
       return res.status(403).json({ message: "You must link an active lost report of your own." });
+    }
+
+    if (lostItem.status !== "active" || foundItem.status !== "active") {
+      return res.status(400).json({ message: "This handover cannot be requested for a returned item." });
+    }
+
+    const existingRequest = await Notification.findOne({
+      user: foundItem.createdBy,
+      lostItem: lostItem._id,
+      foundItem: foundItem._id,
+      requesterLostItem: lostItem._id,
+      type: "claim_request",
+      status: "pending"
+    });
+
+    if (existingRequest) {
+      return res.status(409).json({ message: "You already have a pending request for this item." });
     }
 
     await Notification.create({

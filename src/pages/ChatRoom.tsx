@@ -61,16 +61,24 @@ const ChatRoom = () => {
 
     socket.emit("join_room", id);
 
-    socket.on("new_message", (msg) => {
+    const handleNewMessage = (msg: any) => {
       if (msg.conversationId === id) {
         setMessages(prev => [...prev, msg]);
         // Note: We no longer call /read here because the server 
         // handles unread logic by checking who is in the room.
       }
-    });
+    };
+
+    const handleChatError = (err: any) => {
+      toast.error(err?.message || "Chat connection issue");
+    };
+
+    socket.on("new_message", handleNewMessage);
+    socket.on("chat_error", handleChatError);
 
     return () => {
-      socket.off("new_message");
+      socket.off("new_message", handleNewMessage);
+      socket.off("chat_error", handleChatError);
     };
   }, [socket, id]);
 

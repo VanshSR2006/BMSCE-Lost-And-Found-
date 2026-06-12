@@ -94,27 +94,52 @@ io.use((socket, next) => {
 io.on("connection", (socket) => {
   console.log(`📡 Socket connected: ${socket.user.id}`);
 
-  socket.on("join_room", (roomId) => {
-    socket.join(roomId);
-    console.log(`👥 User ${socket.user.id} joined room: ${roomId}`);
-  });
+  socket.on("join_room", async (roomId) => {
+    try {
+      const conversation = await Conversation.findOne({
+        _id: roomId,
+        participants: socket.user.id,
+        status: "active"
+      });
 
+      if (!conversation) {
+        socket.emit("chat_error", { message: "Chat not found or closed." });
+        return;
+      }
+
+      socket.join(roomId);
+      console.log(`User ${socket.user.id} joined room: ${roomId}`);
+    } catch (err) {
+      socket.emit("chat_error", { message: "Could not join chat." });
+    }
+  });
   socket.on("send_message", async (data) => {
     const { conversationId, text } = data;
 
     try {
+      const cleanText = String(text || "").trim();
+      if (!cleanText) return;
+
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: socket.user.id,
+        status: "active"
+      });
+
+      if (!conversation) {
+        socket.emit("chat_error", { message: "Chat not found or closed." });
+        return;
+      }
+
       const message = await Message.create({
         conversationId,
         sender: socket.user.id,
-        text
+        text: cleanText
       });
-
-      const conversation = await Conversation.findById(conversationId);
-      if (!conversation) return;
 
       const updateObj = {
         lastMessage: {
-          text,
+          text: cleanText,
           sender: socket.user.id,
           createdAt: new Date()
         }
@@ -156,7 +181,7 @@ io.on("connection", (socket) => {
 /* =====================
    DB + SERVER START
 ===================== */
-const PORT = Number(process.env.PORT) || 5004;
+const PORT = Number(process.env.PORT) || 5005;
 
 mongoose
   .connect(process.env.MONGO_URI)

@@ -33,9 +33,9 @@ router.get("/", authMiddleware, async (req, res) => {
       user: userId,
       status: "pending",
     })
-      .populate("lostItem", "title location category description date")
-      .populate("foundItem", "title location category description date secretDetail _id")
-      .populate("requesterLostItem", "title location category description date")
+      .populate("lostItem", "title location category description date createdAt")
+      .populate("foundItem", "title location category description date createdAt secretDetail _id")
+      .populate("requesterLostItem", "title location category description date createdAt")
       .sort({ createdAt: -1 });
 
     let result;

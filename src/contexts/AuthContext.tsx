@@ -27,7 +27,8 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (name: string, email: string, password: string) => Promise<boolean>;
-  loginWithGoogle: (credential: string) => Promise<boolean>;
+  loginWithGoogle: (credential: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogleMock: (email: string, name?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateUser: (userData: User) => void;
 }
@@ -123,10 +124,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // force notification reload after login
       window.dispatchEvent(new Event("storage"));
 
-      return true;
-    } catch (e) {
+      return { success: true };
+    } catch (e: any) {
       console.error("Google Login failed", e);
-      return false;
+      const msg = e.response?.data?.message || "Google Authentication failed";
+      return { success: false, error: msg };
+    }
+  };
+
+  const loginWithGoogleMock = async (email: string, name?: string) => {
+    try {
+      const response = await api.post("/auth/google-mock", { email, name });
+
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+
+      setUser(response.data.user);
+
+      // force notification reload after login
+      window.dispatchEvent(new Event("storage"));
+
+      return { success: true };
+    } catch (e: any) {
+      console.error("Google Mock Login failed", e);
+      const msg = e.response?.data?.message || "Google Mock Authentication failed";
+      return { success: false, error: msg };
     }
   };
 
@@ -158,6 +180,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         signup,
         loginWithGoogle,
+        loginWithGoogleMock,
         logout,
         updateUser,
       }}

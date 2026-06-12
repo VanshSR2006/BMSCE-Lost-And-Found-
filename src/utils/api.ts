@@ -1,8 +1,36 @@
 import axios from "axios";
+import { Capacitor } from "@capacitor/core";
 
 // VITE_API_URL must be set in Vercel dashboard environment variables.
 // For local dev it reads from .env.development automatically.
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
+  // If we are on native platform (Android/iOS)
+  if (Capacitor.isNativePlatform()) {
+    // 1. If running via Live Reload, window.location.hostname will be the computer's LAN IP (e.g. 192.168.x.x or 172.x.x.x)
+    if (
+      typeof window !== "undefined" &&
+      window.location.hostname &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1"
+    ) {
+      return `http://${window.location.hostname}:5005`;
+    }
+
+    // 2. If it's a production build, VITE_API_URL will point to the deployed Render backend
+    if (
+      import.meta.env.VITE_API_URL &&
+      !import.meta.env.VITE_API_URL.includes("localhost") &&
+      !import.meta.env.VITE_API_URL.includes("127.0.0.1")
+    ) {
+      return import.meta.env.VITE_API_URL;
+    }
+
+    // 3. Fallback for local testing (both emulator and physical device on same Wi-Fi)
+    // 172.21.167.79 is the host PC's LAN IP address.
+    return "http://172.21.167.79:5005";
+  }
+
+  // Web platform logic
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
