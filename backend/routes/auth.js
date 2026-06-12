@@ -5,10 +5,30 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const authMiddleware = require("../middleware/authMiddleware");
 
+const normalizeEmail = (email = "") => String(email).trim().toLowerCase();
+
+const buildUserResponse = (user) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  phone: user.phone || "",
+  usn: user.usn || "",
+  branch: user.branch || "",
+  isUsnVerified: user.isUsnVerified || false,
+});
+
+const signUserToken = (user) => jwt.sign(
+  { id: user._id, role: user.role },
+  process.env.JWT_SECRET,
+  { expiresIn: "7d" }
+);
+
 // ---------------- SIGNUP ----------------
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, password } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     if (!email.endsWith("@bmsce.ac.in")) {
       return res.status(400).json({ message: "Use your BMSCE email only" });
@@ -28,25 +48,12 @@ router.post("/signup", async (req, res) => {
       role: "user",
     });
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = signUserToken(user);
 
     res.status(201).json({
       message: "Signup successful",
       token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone || "",
-        usn: user.usn || "",
-        branch: user.branch || "",
-        isUsnVerified: user.isUsnVerified || false,
-      },
+      user: buildUserResponse(user),
     });
   } catch (err) {
     console.error("Signup error:", err);
@@ -57,7 +64,8 @@ router.post("/signup", async (req, res) => {
 // ---------------- LOGIN ----------------
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
@@ -66,25 +74,12 @@ router.post("/login", async (req, res) => {
     if (!valid)
       return res.status(400).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = signUserToken(user);
 
     res.json({
       message: "Login successful",
       token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone || "",
-        usn: user.usn || "",
-        branch: user.branch || "",
-        isUsnVerified: user.isUsnVerified || false,
-      },
+      user: buildUserResponse(user),
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -98,14 +93,7 @@ router.get("/me", authMiddleware, async (req, res) => {
   if (!user) return res.status(404).json({ message: "User not found" });
   res.json({
     user: {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      phone: user.phone || "",
-      usn: user.usn || "",
-      branch: user.branch || "",
-      isUsnVerified: user.isUsnVerified || false,
+      ...buildUserResponse(user),
     }
   });
 });
@@ -134,7 +122,8 @@ router.post("/google", async (req, res) => {
       return res.status(400).json({ message: "Invalid Google token" });
     }
 
-    const { email, name, sub: googleId } = payload;
+    const { name, sub: googleId } = payload;
+    const email = normalizeEmail(payload.email);
 
     if (!email.endsWith("@bmsce.ac.in")) {
       return res.status(400).json({ message: "Unauthorized: Use your @bmsce.ac.in email ONLY" });
@@ -151,25 +140,12 @@ router.post("/google", async (req, res) => {
       });
     }
 
-    const serverToken = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const serverToken = signUserToken(user);
 
     res.json({
       message: "Google Login successful",
       token: serverToken,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone || "",
-        usn: user.usn || "",
-        branch: user.branch || "",
-        isUsnVerified: user.isUsnVerified || false,
-      },
+      user: buildUserResponse(user),
     });
   } catch (err) {
     console.error("Google verify error:", err);
@@ -180,7 +156,8 @@ router.post("/google", async (req, res) => {
 // ---------------- MOCK GOOGLE SIGN IN (FOR DEMO/MOBILE BACKUP) ----------------
 router.post("/google-mock", async (req, res) => {
   try {
-    const { email, name } = req.body;
+    const email = normalizeEmail(req.body.email);
+    const name = String(req.body.name || "").trim();
 
     if (!email || !email.endsWith("@bmsce.ac.in")) {
       return res.status(400).json({ message: "Unauthorized: Use your @bmsce.ac.in email ONLY" });
@@ -195,31 +172,21 @@ router.post("/google-mock", async (req, res) => {
         password: await bcrypt.hash("mockgooglepassword" + process.env.JWT_SECRET, 10),
         role: "user",
       });
+    } else if (!user.name && name) {
+      user.name = name;
+      await user.save();
     }
 
-    const serverToken = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const serverToken = signUserToken(user);
 
     res.json({
-      message: "Google Mock Login successful",
+      message: "Mobile demo login successful",
       token: serverToken,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone || "",
-        usn: user.usn || "",
-        branch: user.branch || "",
-        isUsnVerified: user.isUsnVerified || false,
-      },
+      user: buildUserResponse(user),
     });
   } catch (err) {
-    console.error("Google Mock error:", err);
-    res.status(500).json({ message: "Mock login failed" });
+    console.error("Mobile demo login error:", err);
+    res.status(500).json({ message: "Mobile login failed" });
   }
 });
 

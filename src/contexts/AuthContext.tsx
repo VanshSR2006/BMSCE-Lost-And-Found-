@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await api.post("/auth/signup", {
         name,
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
 
@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   ===================== */
   const login = async (email: string, password: string) => {
     try {
-      const response = await api.post("/auth/login", { email, password });
+      const response = await api.post("/auth/login", { email: email.trim().toLowerCase(), password });
 
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("user", JSON.stringify(response.data.user));
@@ -134,7 +134,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithGoogleMock = async (email: string, name?: string) => {
     try {
-      const response = await api.post("/auth/google-mock", { email, name });
+      const response = await api.post("/auth/google-mock", {
+        email: email.trim().toLowerCase(),
+        name
+      });
 
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("user", JSON.stringify(response.data.user));
