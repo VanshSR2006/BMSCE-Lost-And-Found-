@@ -60,6 +60,7 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/health", (req, res) => {
   res.json({
     ok: true,
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
     commit: RENDER_COMMIT || null,
     geminiConfigured: !!GEMINI_API_KEY,
     groqConfigured: !!GROQ_API_KEY,
@@ -74,6 +75,12 @@ app.use("/items", itemRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/admin", adminRoutes);
 app.use("/chat", chatRoutes);
+
+app.use((err, req, res, next) => {
+  console.error("Unhandled request error:", err);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ message: "Internal server error" });
+});
 
 /* =====================
    SOCKET.IO LOGIC
@@ -183,8 +190,13 @@ io.on("connection", (socket) => {
 ===================== */
 const PORT = Number(process.env.PORT) || 5005;
 
+if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
+  console.error("Missing required environment variables: MONGO_URI and JWT_SECRET");
+  process.exit(1);
+}
+
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 15000 })
   .then(() => {
     console.log("✅ MongoDB connected");
     server.listen(PORT, "0.0.0.0", () => {

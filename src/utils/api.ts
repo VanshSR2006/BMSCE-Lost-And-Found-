@@ -4,6 +4,8 @@ import { Capacitor } from "@capacitor/core";
 // VITE_API_URL must be set in Vercel dashboard environment variables.
 // For local dev it reads from .env.development automatically.
 export const getBaseUrl = () => {
+  const configuredUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, "");
+
   // If we are on native platform (Android/iOS)
   if (Capacitor.isNativePlatform()) {
     // 1. If running via Live Reload, window.location.hostname will be the computer's LAN IP (e.g. 192.168.x.x or 172.x.x.x)
@@ -18,21 +20,21 @@ export const getBaseUrl = () => {
 
     // 2. If it's a production build, VITE_API_URL will point to the deployed Render backend
     if (
-      import.meta.env.VITE_API_URL &&
-      !import.meta.env.VITE_API_URL.includes("localhost") &&
-      !import.meta.env.VITE_API_URL.includes("127.0.0.1")
+      configuredUrl &&
+      !configuredUrl.includes("localhost") &&
+      !configuredUrl.includes("127.0.0.1")
     ) {
-      return import.meta.env.VITE_API_URL;
+      return configuredUrl;
     }
 
-    // 3. Fallback for local testing (both emulator and physical device on same Wi-Fi)
-    // 172.21.167.79 is the host PC's LAN IP address.
-    return "http://172.21.167.79:5005";
+    // Capacitor serves bundled apps from localhost. A production APK must have
+    // VITE_API_URL baked in; this fallback is only useful for Android emulators.
+    return "http://10.0.2.2:5005";
   }
 
   // Web platform logic
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+  if (configuredUrl) {
+    return configuredUrl;
   }
   // Dev-friendly fallback:
   // - If you open the app via LAN IP (e.g. http://192.168.x.x:8080),
@@ -46,6 +48,7 @@ export const getBaseUrl = () => {
 
 export const api = axios.create({
   baseURL: getBaseUrl(),
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },

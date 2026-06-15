@@ -11,15 +11,13 @@ const GOOGLE_CLIENT_ID = "950515933140-hae51v4n4qr94n198g7n7huh02afsqmf.apps.goo
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { login, signup, loginWithGoogle, loginWithGoogleMock, isAuthenticated } = useAuth();
+  const { login, signup, loginWithGoogle, isAuthenticated } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isNativeApp = Capacitor.isNativePlatform();
 
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [signupData, setSignupData] = useState({ name: "", email: "", password: "", confirmPassword: "" });
-  const [showMockLoginModal, setShowMockLoginModal] = useState(false);
-  const [mockEmail, setMockEmail] = useState("");
-  const [isMockSubmitting, setIsMockSubmitting] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -28,28 +26,41 @@ const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { email, password } = loginData;
+    const email = loginData.email.trim().toLowerCase();
+    const { password } = loginData;
     if (!email || !password) return toast.error("Fill all fields");
     if (!email.endsWith("@bmsce.ac.in")) return toast.error("Use your BMSCE email");
 
-    const ok = await login(email, password);
-    if (!ok) return toast.error("Invalid email or password");
-    toast.success("Logged in successfully!");
-    navigate("/");
+    setIsSubmitting(true);
+    try {
+      const ok = await login(email, password);
+      if (!ok) return toast.error("Invalid email or password");
+      toast.success("Logged in successfully!");
+      navigate("/");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { name, email, password, confirmPassword } = signupData;
+    const name = signupData.name.trim();
+    const email = signupData.email.trim().toLowerCase();
+    const { password, confirmPassword } = signupData;
     if (!name || !email || !password || !confirmPassword) return toast.error("Fill all fields");
     if (!email.endsWith("@bmsce.ac.in")) return toast.error("Use your BMSCE email");
     if (password !== confirmPassword) return toast.error("Passwords do not match");
     if (password.length < 6) return toast.error("Password must be at least 6 characters");
 
-    const ok = await signup(name, email, password);
-    if (!ok) return toast.error("Signup failed");
-    toast.success("Account created! Logging in...");
-    navigate("/");
+    setIsSubmitting(true);
+    try {
+      const ok = await signup(name, email, password);
+      if (!ok) return toast.error("Signup failed. This email may already be registered.");
+      toast.success("Account created successfully!");
+      navigate("/");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
@@ -61,37 +72,6 @@ const Auth = () => {
       } else {
         toast.error(result.error || "Google Auth failed. Use your @bmsce.ac.in address.");
       }
-    }
-  };
-
-  const handleMockGoogleLogin = () => {
-    setShowMockLoginModal(true);
-  };
-
-  const submitMockGoogleLogin = async () => {
-    const cleanEmail = mockEmail.trim().toLowerCase();
-    if (!cleanEmail) {
-      toast.error("Please enter your email");
-      return;
-    }
-    if (!cleanEmail.endsWith("@bmsce.ac.in")) {
-      toast.error("Unauthorized: Use @bmsce.ac.in address ONLY.");
-      return;
-    }
-
-    setIsMockSubmitting(true);
-    try {
-      const name = cleanEmail.split("@")[0].replace(/[._]/g, " ");
-      const result = await loginWithGoogleMock(cleanEmail, name);
-      if (result.success) {
-        toast.success("Signed in successfully!");
-        setShowMockLoginModal(false);
-        navigate("/");
-      } else {
-        toast.error(result.error || "Mobile sign-in failed.");
-      }
-    } finally {
-      setIsMockSubmitting(false);
     }
   };
 
@@ -150,9 +130,11 @@ const Auth = () => {
                   {isLogin ? "Welcome Back" : "Join the Network"}
                 </div>
                 <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2 text-white font-['Plus_Jakarta_Sans']">
-                  {isLogin ? "Log in to your account" : "Initialize Account"}
+                  {isLogin ? "Sign in to your account" : "Create your account"}
                 </h1>
-                <p className="text-purple-200/60 text-sm">Elevate your campus experience with the next-gen recovery network.</p>
+                <p className="text-purple-200/60 text-sm">
+                  Use your BMSCE account to access lost-and-found reports.
+                </p>
               </header>
 
               <form onSubmit={isLogin ? handleLogin : handleSignup} className="space-y-5 max-w-sm mx-auto md:mx-0 w-full">
@@ -164,6 +146,7 @@ const Auth = () => {
                         className="w-full px-5 py-3.5 bg-transparent border-none focus:ring-0 text-white placeholder:text-purple-300/20 text-sm outline-none"
                         placeholder="Ex. Alex Rivers"
                         type="text"
+                        autoComplete="name"
                         value={signupData.name}
                         onChange={(e) => setSignupData({ ...signupData, name: e.target.value })}
                       />
@@ -178,6 +161,9 @@ const Auth = () => {
                       className="w-full px-5 py-3.5 bg-transparent border-none focus:ring-0 text-white placeholder:text-purple-300/20 text-sm outline-none"
                       placeholder="name@bmsce.ac.in"
                       type="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      autoComplete="email"
                       value={isLogin ? loginData.email : signupData.email}
                       onChange={(e) =>
                         isLogin
@@ -195,6 +181,7 @@ const Auth = () => {
                       className="w-full px-5 py-3.5 bg-transparent border-none focus:ring-0 text-white placeholder:text-purple-300/20 text-sm outline-none"
                       placeholder="••••••••"
                       type="password"
+                      autoComplete={isLogin ? "current-password" : "new-password"}
                       value={isLogin ? loginData.password : signupData.password}
                       onChange={(e) =>
                         isLogin
@@ -213,6 +200,7 @@ const Auth = () => {
                         className="w-full px-5 py-3.5 bg-transparent border-none focus:ring-0 text-white placeholder:text-purple-300/20 text-sm outline-none"
                         placeholder="••••••••"
                         type="password"
+                        autoComplete="new-password"
                         value={signupData.confirmPassword}
                         onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
                       />
@@ -222,29 +210,24 @@ const Auth = () => {
 
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-[#6200EE] to-[#ff2e97] hover:from-[#b89fff] hover:to-[#6200EE] text-white font-extrabold py-4 rounded-full flex items-center justify-center gap-3 mt-6 shadow-[0_10px_30px_rgba(255,46,151,0.3)] transition-all duration-300 active:scale-95 group"
+                  disabled={isSubmitting}
+                  className="w-full bg-gradient-to-r from-[#6200EE] to-[#ff2e97] hover:from-[#b89fff] hover:to-[#6200EE] text-white font-extrabold py-4 rounded-full flex items-center justify-center gap-3 mt-6 shadow-[0_10px_30px_rgba(255,46,151,0.3)] transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 group"
                 >
-                  <span className="tracking-tight uppercase text-sm">{isLogin ? "Authenticate" : "Initialize Account"}</span>
+                  <span className="tracking-tight uppercase text-sm">
+                    {isSubmitting ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+                  </span>
                   <span className="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
                 </button>
 
-                <div className="relative my-6 flex items-center py-2">
-                  <div className="flex-grow border-t border-white/10"></div>
-                  <span className="flex-shrink-0 mx-4 text-[10px] font-bold uppercase tracking-widest text-purple-300/40">OR PROTOCOL</span>
-                  <div className="flex-grow border-t border-white/10"></div>
-                </div>
+                {!isNativeApp && (
+                  <>
+                    <div className="relative my-6 flex items-center py-2">
+                      <div className="flex-grow border-t border-white/10"></div>
+                      <span className="flex-shrink-0 mx-4 text-[10px] font-bold uppercase tracking-widest text-purple-300/40">Or continue with</span>
+                      <div className="flex-grow border-t border-white/10"></div>
+                    </div>
 
-                <div className="flex justify-center md:justify-start w-full">
-                  {isNativeApp ? (
-                    <button
-                      type="button"
-                      onClick={handleMockGoogleLogin}
-                      className="flex items-center justify-center gap-3 bg-white text-black hover:bg-white/90 active:scale-95 font-bold py-3 px-6 rounded-full transition-all duration-200 w-full max-w-[240px] shadow-[0_4px_12px_rgba(0,0,0,0.1)] border border-neutral-200"
-                    >
-                      <span className="material-symbols-outlined text-lg">alternate_email</span>
-                      <span className="text-sm">Continue with BMSCE Email</span>
-                    </button>
-                  ) : (
+                    <div className="flex justify-center md:justify-start w-full">
                     <GoogleLogin
                       onSuccess={handleGoogleSuccess}
                       onError={() => toast.error("Google Sign-In Failed")}
@@ -253,81 +236,38 @@ const Auth = () => {
                       theme="filled_black"
                       text={isLogin ? "signin_with" : "signup_with"}
                     />
-                  )}
-                </div>
+                    </div>
+                  </>
+                )}
+
+                {isNativeApp && (
+                  <p className="text-center md:text-left text-xs leading-relaxed text-purple-200/50">
+                    {isLogin
+                      ? "Sign in with your registered BMSCE email and password."
+                      : "Create an account with your BMSCE email and a new password."}{" "}
+                    Google sign-in is currently available on the web app only.
+                  </p>
+                )}
               </form>
 
               <footer className="mt-8 text-center md:text-left">
                 <p className="text-xs text-purple-200/50">
-                  {isLogin ? "No neural link established? " : "Neural link already established? "}
+                  {isLogin ? "New to BMSCE Reconnect? " : "Already have an account? "}
                   <button
-                    onClick={() => setIsLogin(!isLogin)}
+                    type="button"
+                    onClick={() => {
+                      setIsSubmitting(false);
+                      setIsLogin(!isLogin);
+                    }}
                     className="text-[#4af8e3] font-bold hover:text-white transition-all underline decoration-[#4af8e3]/30 underline-offset-4 cursor-pointer"
                   >
-                    {isLogin ? "Join the Network" : "Sign In"}
+                    {isLogin ? "Create Account" : "Sign In"}
                   </button>
                 </p>
               </footer>
             </div>
           </div>
         </main>
-
-        {/* Native mobile login fallback */}
-        {showMockLoginModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-            <div className="w-full max-w-md bg-[#240e3b] border border-white/10 rounded-[2.5rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.6)] relative overflow-hidden">
-              {/* Decorative Blob matching the background style */}
-              <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-600/30 rounded-full blur-2xl"></div>
-              
-              <h3 className="text-xl font-extrabold text-white mb-2 font-['Plus_Jakarta_Sans']">
-                Mobile Sign-In
-              </h3>
-              <p className="text-sm text-purple-200/60 mb-6 leading-relaxed">
-                Google OAuth popups are unreliable inside Android WebView. For the mobile app build, continue with your <span className="text-[#4af8e3] font-bold">@bmsce.ac.in</span> email.
-              </p>
-              
-              <div className="space-y-5">
-                <div className="space-y-1.5 group">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-300/60 ml-2">
-                    BMSCE Email Address
-                  </label>
-                  <div className="bg-white/5 rounded-2xl p-0.5 border border-white/5 focus-within:ring-2 focus-within:ring-[#b89fff]/40">
-                    <input
-                      type="email"
-                      className="w-full px-5 py-3.5 bg-transparent border-none focus:ring-0 text-white placeholder:text-purple-300/20 text-sm outline-none"
-                      placeholder="user@bmsce.ac.in"
-                      value={mockEmail}
-                      onChange={(e) => setMockEmail(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !isMockSubmitting) {
-                          submitMockGoogleLogin();
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex gap-4 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowMockLoginModal(false)}
-                    className="flex-1 py-3.5 px-4 rounded-full border border-white/10 text-white hover:bg-white/5 active:scale-95 transition-all duration-200 font-bold text-xs uppercase tracking-widest"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={submitMockGoogleLogin}
-                    disabled={isMockSubmitting}
-                    className="flex-1 py-3.5 px-4 rounded-full bg-gradient-to-r from-[#6200EE] to-[#ff2e97] hover:from-[#b89fff] hover:to-[#6200EE] text-white active:scale-95 transition-all duration-200 font-extrabold text-xs uppercase tracking-widest shadow-[0_10px_20px_rgba(255,46,151,0.25)]"
-                  >
-                    {isMockSubmitting ? "Signing In..." : "Sign In"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         <Footer />
       </div>

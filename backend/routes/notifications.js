@@ -80,8 +80,19 @@ router.get("/", authMiddleware, async (req, res) => {
    CLEAR NOTIFICATION
 ===================== */
 router.delete("/:id", authMiddleware, async (req, res) => {
-  await Notification.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
+  try {
+    const deleted = await Notification.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user._id || req.user.id,
+    });
+    if (!deleted) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Notification delete error:", err);
+    res.status(500).json({ message: "Failed to delete notification" });
+  }
 });
 
 module.exports = router;

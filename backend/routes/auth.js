@@ -89,13 +89,18 @@ router.post("/login", async (req, res) => {
 
 // ---------------- ME ----------------
 router.get("/me", authMiddleware, async (req, res) => {
-  const user = await User.findById(req.user.id).select("-password");
-  if (!user) return res.status(404).json({ message: "User not found" });
-  res.json({
-    user: {
-      ...buildUserResponse(user),
-    }
-  });
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({
+      user: {
+        ...buildUserResponse(user),
+      }
+    });
+  } catch (err) {
+    console.error("Session restore error:", err);
+    res.status(500).json({ message: "Failed to restore session" });
+  }
 });
 
 // ---------------- GOOGLE SIGN IN ----------------
@@ -150,43 +155,6 @@ router.post("/google", async (req, res) => {
   } catch (err) {
     console.error("Google verify error:", err);
     res.status(500).json({ message: "Google authentication failed" });
-  }
-});
-
-// ---------------- MOCK GOOGLE SIGN IN (FOR DEMO/MOBILE BACKUP) ----------------
-router.post("/google-mock", async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body.email);
-    const name = String(req.body.name || "").trim();
-
-    if (!email || !email.endsWith("@bmsce.ac.in")) {
-      return res.status(400).json({ message: "Unauthorized: Use your @bmsce.ac.in email ONLY" });
-    }
-
-    let user = await User.findOne({ email });
-
-    if (!user) {
-      user = await User.create({
-        name: name || email.split("@")[0].replace(".", " "),
-        email,
-        password: await bcrypt.hash("mockgooglepassword" + process.env.JWT_SECRET, 10),
-        role: "user",
-      });
-    } else if (!user.name && name) {
-      user.name = name;
-      await user.save();
-    }
-
-    const serverToken = signUserToken(user);
-
-    res.json({
-      message: "Mobile demo login successful",
-      token: serverToken,
-      user: buildUserResponse(user),
-    });
-  } catch (err) {
-    console.error("Mobile demo login error:", err);
-    res.status(500).json({ message: "Mobile login failed" });
   }
 });
 
