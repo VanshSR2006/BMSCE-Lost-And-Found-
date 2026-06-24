@@ -64,7 +64,14 @@ router.post("/analyze-image", aiRateLimiter, authMiddleware, async (req, res) =>
 
     // Dynamic verification to ensure variables are actively pulled from Render's runtime env
     if (!ai && !GROQ_API_KEY) {
-      return res.status(500).json({ message: "AI Analysis service is not configured on this server." });
+      return res.status(200).json({
+        title: "",
+        description: "",
+        category: "",
+        provider: "manual",
+        needsManualEntry: true,
+        message: "AI analysis is not configured on this server. Please fill fields manually."
+      });
     }
 
     const extractJsonObject = (text) => {
@@ -91,16 +98,19 @@ router.post("/analyze-image", aiRateLimiter, authMiddleware, async (req, res) =>
     };
 
     let mimeType = "image/jpeg";
-    const mimeMatch = image.match(/^data:(image\/\w+);base64,/);
+    const mimeMatch = String(image).match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,/i);
     if (mimeMatch) {
-      mimeType = mimeMatch[1];
+      mimeType = mimeMatch[1].toLowerCase() === "image/jpg" ? "image/jpeg" : mimeMatch[1].toLowerCase();
     }
 
-    const cleanBase64 = image.replace(/^data:image\/\w+;base64,/, "");
+    const cleanBase64 = String(image).replace(/^data:image\/(?:jpeg|jpg|png|webp);base64,/i, "");
+    if (!/^[A-Za-z0-9+/=\s]+$/.test(cleanBase64) || cleanBase64.length < 40) {
+      return res.status(400).json({ message: "Invalid image data provided for analysis." });
+    }
     const imagePart = { inlineData: { data: cleanBase64, mimeType } };
 
-    // Gemini 1.5 is shut down; Gemini 2.0 shuts down soon; prefer 2.5+ / 3.x.
-    const candidateModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+    // Prefer supported models, while keeping broad fallback coverage for older deployments.
+    const candidateModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
 
     const prompt = `You are an expert visual analyst. Analyze the provided image of a lost or found item and extract its details.
 
@@ -186,8 +196,13 @@ Analyze the image and return ONLY the JSON.`;
 
       // Check if fallback execution is forced but Groq variables are completely absent
       if (usedGroq && !GROQ_API_KEY) {
-        return res.status(503).json({
-          message: "Gemini daily limit exhausted and Groq fallback is not configured on Render environment settings."
+        return res.status(200).json({
+          title: "",
+          description: "",
+          category: "",
+          provider: "manual",
+          needsManualEntry: true,
+          message: "AI daily limit is exhausted. Please fill fields manually."
         });
       }
     } else {
@@ -195,17 +210,24 @@ Analyze the image and return ONLY the JSON.`;
     }
 
     if (usedGroq) {
-      // Valid structural models hosted on Groq's cloud infrastructure
+      // Current Groq vision models first; legacy preview IDs are kept last for old accounts.
       const groqModels = [
-        "llama-3.2-11b-vision-preview",
-        "llama-3.2-90b-vision-preview"
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "llama-3.2-90b-vision-preview",
+        "llama-3.2-11b-vision-preview"
       ];
       let groqResponse;
       let groqErr;
 
       if (!groq) {
-        return res.status(503).json({
-          message: "Groq fallback is not configured on this server."
+        return res.status(200).json({
+          title: "",
+          description: "",
+          category: "",
+          provider: "manual",
+          needsManualEntry: true,
+          message: "AI fallback is not configured on this server. Please fill fields manually."
         });
       }
 
@@ -228,7 +250,8 @@ Analyze the image and return ONLY the JSON.`;
                 ],
               },
             ],
-            response_format: { type: "json_object" }
+            temperature: 0.1,
+            max_tokens: 500
           });
           groqErr = null;
           break;
@@ -239,12 +262,17 @@ Analyze the image and return ONLY the JSON.`;
       }
 
       if (groqResponse) {
-        responseText = groqResponse.choices[0].message.content;
+        responseText = groqResponse.choices?.[0]?.message?.content || "";
         console.log('🤖 Groq raw response:', responseText);
       } else {
         console.error("❌ Groq Fallback Error (all models failed):", groqErr);
-        return res.status(500).json({
-          message: "AI analysis failed on both Gemini and Groq. Please fill fields manually."
+        return res.status(200).json({
+          title: "",
+          description: "",
+          category: "",
+          provider: "manual",
+          needsManualEntry: true,
+          message: "AI analysis is temporarily unavailable. Please fill fields manually."
         });
       }
     }
@@ -252,7 +280,14 @@ Analyze the image and return ONLY the JSON.`;
     const parsedData = extractJsonObject(responseText);
 
     if (!parsedData || typeof parsedData !== "object") {
-      return res.status(500).json({ message: "AI returned invalid data structures. Please fill in the fields manually." });
+      return res.status(200).json({
+        title: "",
+        description: "",
+        category: "",
+        provider: "manual",
+        needsManualEntry: true,
+        message: "AI returned incomplete details. Please fill fields manually."
+      });
     }
 
     const safe = {
@@ -260,6 +295,7 @@ Analyze the image and return ONLY the JSON.`;
       description: typeof parsedData.description === "string" ? parsedData.description.trim() : "",
       category: typeof parsedData.category === "string" ? parsedData.category.trim() : "",
       provider: usedGroq ? "groq" : "gemini",
+      needsManualEntry: false,
     };
 
     const allowed = new Set(["wallet", "id-card", "bottle", "stationery", "electronics", "other"]);
@@ -269,17 +305,38 @@ Analyze the image and return ONLY the JSON.`;
     }
 
     if (safe.title && safe.title.toLowerCase().includes("detected")) {
-      return res.status(500).json({ message: "AI could not extract real data. Please try another photo or fill in manually." });
+      return res.status(200).json({
+        title: "",
+        description: "",
+        category: "",
+        provider: "manual",
+        needsManualEntry: true,
+        message: "AI could not extract real data. Please try another photo or fill in manually."
+      });
     }
     if (safe.description && safe.description.toLowerCase().includes("detected")) {
-      return res.status(500).json({ message: "AI could not extract real data. Please try another photo or fill in manually." });
+      return res.status(200).json({
+        title: "",
+        description: "",
+        category: "",
+        provider: "manual",
+        needsManualEntry: true,
+        message: "AI could not extract real data. Please try another photo or fill in manually."
+      });
     }
 
     res.json(safe);
 
   } catch (err) {
     console.error("❌ AI Analysis Critical Error:", err);
-    res.status(500).json({ message: "AI analysis failed completely. Please fill in the fields manually." });
+    res.status(200).json({
+      title: "",
+      description: "",
+      category: "",
+      provider: "manual",
+      needsManualEntry: true,
+      message: "AI analysis is temporarily unavailable. Please fill fields manually."
+    });
   }
 });
 

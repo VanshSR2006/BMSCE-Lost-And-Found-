@@ -68,14 +68,18 @@ const Post = () => {
         image: base64Image
       });
       const data = response.data;
+      if (data.needsManualEntry) {
+        toast.warning(data.message || "AI scan unavailable. Please fill fields manually.");
+        return;
+      }
       if (data.provider) {
         setAiProvider(data.provider);
       }
       setFormData((prev) => ({
         ...prev,
-        title: data.title || "",
-        description: data.description || "",
-        category: data.category || "",
+        title: data.title || prev.title,
+        description: data.description || prev.description,
+        category: data.category || prev.category,
       }));
       toast.success(`${data.provider === "groq" ? "Groq" : "Gemini"} scan complete! Details populated.`);
     } catch (err: any) {
